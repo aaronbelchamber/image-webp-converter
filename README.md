@@ -9,26 +9,29 @@ Automatically converts newly uploaded JPG/JPEG/PNG images to WEBP format on the 
 
 ## Features
 - Converts JPG, JPEG, and PNG uploads to WEBP automatically as they come in.
-- Preserves transparency for PNG images.
-- Checks for the GD extension and shows an admin notice if it's missing, instead of failing silently.
-- Adjustable quality from the WordPress admin (Settings > WebP Converter).
+- Preserves transparency for PNG images — and never drops below quality 80 for transparent images specifically, to avoid jagged compression artifacts on hard alpha edges.
+- Corrects EXIF orientation before converting, so photos don't end up sideways.
+- Skips CMYK JPEGs and hosts that can't decode WebP back, rather than risk a broken or corrupted result.
+- **Convert Existing Images**: safely bulk-convert your current Media Library. Images not yet used anywhere convert immediately; images already in a post's content are converted with their references updated automatically, originals kept for your review; anything referenced from a page builder or widget is left untouched and reported, not guessed at.
+- Cleanup Review screen to move reviewed originals to a holding folder (not deleted) once you're confident.
+- Adjustable quality and an on/off toggle from the WordPress admin (Settings > WebP Converter).
 
 ## Installation
 1. Upload the `image-webp-converter` folder to `/wp-content/plugins/`.
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 
 ## Usage
-Once activated, every new JPG/JPEG/PNG upload is converted to WEBP automatically — nothing else to do.
+Once activated, every new JPG/JPEG/PNG upload is converted to WEBP automatically — nothing else to do. To convert images already in your Media Library, go to **Settings > WebP Converter > Convert Existing Images**.
 
 ## Configuration
-Quality (0–100) is set at **Settings > WebP Converter** in wp-admin. No file editing required.
+Quality (0–100) and the automatic-conversion toggle are set at **Settings > WebP Converter** in wp-admin. No file editing required.
 
 ## Requirements
-- PHP 7.0+
+- PHP 7.4+
 - GD extension enabled in your PHP configuration.
 
 ## Support
 Open an issue on this plugin's repository, or contact the developer via [belchamber.us](https://belchamber.us).
 
 ## License
-GPLv2 — see [readme.txt](readme.txt) for the WordPress.org-format changelog and FAQ.
+GPLv2 or later — see [readme.txt](readme.txt) for the WordPress.org-format changelog and FAQ.
