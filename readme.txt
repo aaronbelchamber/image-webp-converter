@@ -4,7 +4,7 @@ Tags: images, webp, performance, optimization, media
 Requires at least: 5.6
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,6 +26,9 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 
 == Changelog ==
 
+
+= 1.2.1 =
+* Fixed bulk-convert bytes_saved always reporting 0 for trashed images; added a PHPUnit test suite.
 = 1.2.0 =
 * Convert Existing Images: safely bulk-convert your existing Media Library. Scans for images already used elsewhere on the site and only auto-fixes what's provably safe (unused images convert immediately; images found in plain post content convert with their references updated automatically, originals kept for review). Images referenced from page builders/widgets/serialized data are left untouched and reported, not guessed at.
 * Cleanup Review screen: select and move reviewed originals to a holding folder (not deleted) once you're satisfied.

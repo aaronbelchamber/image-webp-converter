@@ -179,6 +179,7 @@ class IWC_Bulk_Converter {
         if (empty($original_path) || !file_exists($original_path)) {
             return ['status' => 'error', 'message' => 'Original file not found'];
         }
+        $bytes_before = @filesize($original_path) ?: 0;
 
         $relative_base = self::get_relative_base($attachment_id);
         $log_id = IWC_Logger::log_start($attachment_id, $original_path, $bucket);
@@ -224,7 +225,7 @@ class IWC_Bulk_Converter {
                 'bytes_after'    => $bytes_after,
                 'old_files_json' => $old_files_json,
             ]);
-            return ['status' => 'trashed', 'bytes_saved' => 0];
+            return ['status' => 'trashed', 'bytes_saved' => max(0, $bytes_before - $bytes_after)];
         }
 
         // plain_content bucket: replace the literal URL in referencing posts,

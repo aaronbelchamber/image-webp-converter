@@ -1,0 +1,40 @@
+name: Tests
+
+on:
+  push:
+    paths:
+      - 'image-webp-converter/**'
+  pull_request:
+    paths:
+      - 'image-webp-converter/**'
+
+jobs:
+  test-with-imagick:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: image-webp-converter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: gd, imagick, exif, pdo_sqlite
+          coverage: none
+      - run: composer install --no-progress --prefer-dist
+      - run: composer test
+
+  test-without-imagick:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: image-webp-converter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: gd, exif, pdo_sqlite
+          coverage: none
+      - run: composer install --no-progress --prefer-dist
+      - run: composer test:no-imagick

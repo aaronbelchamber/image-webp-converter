@@ -1,0 +1,24 @@
+{
+    "name": "belchamber/image-webp-converter",
+    "description": "Dev tooling (test suite) for the Image WebP Converter WordPress plugin.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require-dev": {
+        "php": ">=7.4",
+        "phpunit/phpunit": "^9.6",
+        "brain/monkey": "^2.6",
+        "yoast/phpunit-polyfills": "^2.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "IWC\\Tests\\": "tests/php/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit -c phpunit.xml.dist",
+        "test:no-imagick": "phpunit -c phpunit.xml.dist --exclude-group requires-imagick"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
