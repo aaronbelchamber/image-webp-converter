@@ -34,15 +34,38 @@ final class PngAlphaDetectionTest extends TestCase {
         $this->assertTrue(iwc_png_has_alpha($path));
     }
 
-    public function test_indexed_png_with_trns_is_a_documented_false_negative(): void {
-        // Locks in the source's own documented limitation: indexed PNGs
-        // (color type 3) using a tRNS chunk for transparency are NOT
-        // detected by this function. This is accepted behavior, not a bug —
-        // this test exists so a future change to iwc_png_has_alpha() that
-        // silently starts detecting this case (or regresses further) shows
-        // up as an intentional decision, not a surprise.
+    public function test_indexed_png_with_trns_is_detected(): void {
+        // Indexed PNGs (colour type 3) carry transparency in a tRNS chunk
+        // rather than an alpha channel, so the IHDR colour-type byte alone
+        // says nothing about it. GD writes exactly this shape whenever
+        // imagecolortransparent() is used, so it is not a legacy-only case.
+        // Undetected, these skipped the alpha quality floor and encoded with
+        // visible fringing around the transparent edges.
         $path = $this->tmpPath('indexed-trns.png');
         FixtureFactory::indexedPngWithTrns($path);
+
+        $this->assertTrue(iwc_png_has_alpha($path));
+    }
+
+    public function test_opaque_indexed_png_without_trns_is_not_reported_as_alpha(): void {
+        // The counterpart: walking the chunk table must not turn every
+        // palette image into an alpha image.
+        $path = $this->tmpPath('indexed-opaque.png');
+        $img = imagecreate(10, 10);
+        imagecolorallocate($img, 0, 128, 0);
+        imagepng($img, $path);
+        if (PHP_VERSION_ID < 80000) {
+            imagedestroy($img);
+        }
+
+        $this->assertFalse(iwc_png_has_alpha($path));
+    }
+
+    public function test_chunk_walk_stops_at_image_data(): void {
+        // A truecolour PNG with no transparency: the scan must reach IDAT and
+        // give up rather than walking the whole pixel payload.
+        $path = $this->tmpPath('truecolor-opaque.png');
+        FixtureFactory::opaquePng($path, 40, [10, 20, 200]);
 
         $this->assertFalse(iwc_png_has_alpha($path));
     }

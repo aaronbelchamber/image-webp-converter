@@ -147,5 +147,6 @@ if (!function_exists('wp_mkdir_p')) {
 // --- Load the real plugin source under test ---
 require_once dirname(__DIR__, 2) . '/src/convert-images-to-webp.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-compat.php';
+require_once dirname(__DIR__, 2) . '/src/class-iwc-lock.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-logger.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-bulk-converter.php';

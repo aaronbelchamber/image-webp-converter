@@ -171,15 +171,18 @@ class IWC_Bulk_Converter {
 
     private static function has_plain_content_reference(string $relative_base): bool {
         global $wpdb;
-        $like = '%' . $wpdb->esc_like($relative_base) . '%';
-        $count = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->posts}
+
+        $patterns = self::reference_like_patterns($relative_base);
+        $clause = implode(' OR ', array_fill(0, count($patterns), 'post_content LIKE %s'));
+
+        return (bool) $wpdb->get_var($wpdb->prepare(
+            "SELECT 1 FROM {$wpdb->posts}
              WHERE post_status != 'trash'
                AND post_type NOT IN ('revision', 'attachment')
-               AND post_content LIKE %s",
-            $like
+               AND ($clause)
+             LIMIT 1",
+            $patterns
         ));
-        return $count > 0;
     }
 
     /**
@@ -284,13 +287,19 @@ class IWC_Bulk_Converter {
      */
     private static function find_referencing_posts(string $relative_base): array {
         global $wpdb;
-        $like = '%' . $wpdb->esc_like($relative_base) . '%';
+
+        // Must use the same patterns has_plain_content_reference() does: if
+        // one finds a post the other doesn't, an attachment gets bucketed as
+        // rewritable and then has nothing rewritten.
+        $patterns = self::reference_like_patterns($relative_base);
+        $clause = implode(' OR ', array_fill(0, count($patterns), 'post_content LIKE %s'));
+
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT ID, post_title FROM {$wpdb->posts}
              WHERE post_status != 'trash'
                AND post_type NOT IN ('revision', 'attachment')
-               AND post_content LIKE %s",
-            $like
+               AND ($clause)",
+            $patterns
         ), ARRAY_A);
         return $rows ?: [];
     }
@@ -346,6 +355,16 @@ class IWC_Bulk_Converter {
 
         require_once ABSPATH . 'wp-admin/includes/image.php';
         $metadata = wp_generate_attachment_metadata($attachment_id, $webp_path);
+
+        // Regenerating against a WEBP produces no image_meta — WEBP can't
+        // carry the EXIF/IPTC WordPress reads, and the JPEG that could is
+        // about to be moved aside. Carry the existing record forward so the
+        // camera data, credit and copyright already stored for this
+        // attachment survive the conversion.
+        if (is_array($metadata) && empty($metadata['image_meta']) && !empty($old_metadata['image_meta'])) {
+            $metadata['image_meta'] = $old_metadata['image_meta'];
+        }
+
         wp_update_attachment_metadata($attachment_id, $metadata);
 
         $new_metadata = is_array($metadata) ? $metadata : [];
@@ -560,6 +579,16 @@ class IWC_Bulk_Converter {
                 continue;
             }
             $url_map[$old_url] = $new_url;
+
+            // Block markup carries its attributes as JSON in the delimiter
+            // comment -- <!-- wp:cover {"url":"https:\/\/..."} --> -- where
+            // json_encode() has escaped every slash. A Cover block's
+            // background URL lives only there, so without this pass it was
+            // found by the reference scan and then left untouched.
+            $old_escaped = str_replace('/', '\/', $old_url);
+            if ($old_escaped !== $old_url) {
+                $url_map[$old_escaped] = str_replace('/', '\/', $new_url);
+            }
         }
 
         uksort($url_map, static function ($a, $b) {
@@ -659,6 +688,9 @@ class IWC_Bulk_Converter {
             }
         }
 
-        return $destination_dir;
+        // Fall back to the holding root when nothing was actually moved (every
+        // file already gone), so _iwc_backup_path still points somewhere real
+        // rather than being stored as an empty string.
+        return $destination_dir !== '' ? $destination_dir : $holding_root;
     }
 }

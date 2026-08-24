@@ -4,7 +4,7 @@ Tags: images, webp, performance, optimization, media
 Requires at least: 5.6
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,6 +26,12 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 
 == Changelog ==
 
+= 1.3.1 =
+* Fixed: image URLs stored inside block attributes (a Cover block's background, for instance) have their slashes escaped by WordPress, so they were found by the reference scan but never actually rewritten.
+* Fixed: EXIF and IPTC data — caption, credit, copyright, camera and timestamp — was discarded on every converted upload, because conversion happens before WordPress reads it and WEBP cannot carry it. The original's metadata is now preserved through conversion, and existing metadata survives bulk conversion too.
+* Fixed: indexed PNGs storing transparency in a tRNS chunk (which is what GD produces for a transparent palette image) weren't recognised as transparent, so they skipped the alpha quality floor and encoded with fringing around the edges.
+* Fixed: two browser tabs or two administrators running the bulk converter at once could both start converting the same image. Conversion batches now take a lock, and a run abandoned by a crashed request is reclaimed automatically.
+* Changed: the admin notice after moving files no longer takes its wording from the URL.
 = 1.3.0 =
 * Fixed: the bulk converter's reference check treated only PHP-serialized data as a reference, so images placed with Elementor, Bricks, Oxygen or Breakdance (which store layouts as JSON) were classed as unused and had their originals moved — breaking those pages. References are now detected regardless of how they're stored.
 * Fixed: every image's own attachment metadata was being counted as a reference to itself, which meant the bulk converter reported everything as "in use" and converted nothing at all on a real site.

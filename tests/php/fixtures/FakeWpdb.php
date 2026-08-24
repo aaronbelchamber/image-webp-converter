@@ -112,10 +112,14 @@ class FakeWpdb {
             meta_key TEXT NOT NULL,
             meta_value TEXT
         )");
+        // option_name is UNIQUE in real WordPress, and IWC_Lock depends on
+        // that index to decide which concurrent caller wins the lock — so the
+        // constraint has to exist here or the lock tests prove nothing.
         $this->pdo->exec("CREATE TABLE {$this->options} (
             option_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            option_name TEXT NOT NULL,
-            option_value TEXT
+            option_name TEXT NOT NULL UNIQUE,
+            option_value TEXT,
+            autoload TEXT NOT NULL DEFAULT 'yes'
         )");
         $this->pdo->exec("CREATE TABLE {$this->prefix}iwc_conversion_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,6 +206,17 @@ class FakeWpdb {
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([...array_values($data), ...array_values($where)]);
         return true;
+    }
+
+    /**
+     * Runs a statement and returns the affected row count, as wpdb::query()
+     * does. INSERT IGNORE is rewritten to SQLite's INSERT OR IGNORE — same
+     * semantics, different spelling — so the lock's atomic-insert behaviour
+     * can be exercised for real rather than mocked.
+     */
+    public function query(string $query) {
+        $translated = preg_replace('/^\s*INSERT\s+IGNORE\s+INTO/i', 'INSERT OR IGNORE INTO', $query);
+        return $this->pdo->exec($translated);
     }
 
     public function get_charset_collate(): string {

@@ -13,27 +13,87 @@ if (!defined('ABSPATH')) {
 const IWC_MIN_QUALITY_FOR_ALPHA = 80;
 
 /**
- * Whether a PNG file has an alpha channel, checked via the color-type byte
- * in the file's IHDR chunk (offset 25) rather than decoding pixels — O(1)
- * regardless of image size. Color type 6 = truecolor+alpha, 4 = grayscale
- * +alpha; these cover the vast majority of real transparent PNGs (anything
- * exported "with transparency" from Photoshop/GIMP/Figma/Canva). Known gap:
- * older indexed PNGs using a tRNS chunk for transparency (color type 3)
- * aren't detected here — rare on the modern web, not worth the extra chunk
- * parsing this would require.
+ * Whether a PNG file has any transparency.
+ *
+ * The colour-type byte in the IHDR chunk (offset 25) settles it for the
+ * common cases in O(1), without decoding a single pixel: type 6 is
+ * truecolour+alpha and type 4 is greyscale+alpha, which covers anything
+ * exported "with transparency" from Photoshop/GIMP/Figma/Canva.
+ *
+ * The other three types can still be transparent by carrying a tRNS chunk —
+ * a palette of per-index alpha for indexed images (type 3), or a single
+ * colour declared transparent for greyscale/truecolour (types 0 and 2).
+ * That's how GD writes a palette image with imagecolortransparent(), so it
+ * turns up in anything routed through GD, not just old files. Missing it
+ * meant those images skipped the alpha quality floor and got encoded with
+ * visible fringing around the transparent edges.
  */
 function iwc_png_has_alpha(string $file_path): bool {
     $handle = @fopen($file_path, 'rb');
     if ($handle === false) {
         return false;
     }
+
     $header = fread($handle, 26);
-    fclose($handle);
     if ($header === false || strlen($header) < 26) {
+        fclose($handle);
         return false;
     }
+
     $color_type = ord($header[25]);
-    return in_array($color_type, [4, 6], true);
+    if (in_array($color_type, [4, 6], true)) {
+        fclose($handle);
+        return true;
+    }
+
+    $has_trns = iwc_png_has_trns_chunk($handle);
+    fclose($handle);
+
+    return $has_trns;
+}
+
+/**
+ * Scan a PNG's chunk table for a tRNS chunk, with the handle positioned just
+ * past the IHDR chunk's data.
+ *
+ * Chunks are [4-byte big-endian length][4-byte type][data][4-byte CRC]. Only
+ * the headers are read and the data is seeked over, so this stays cheap
+ * regardless of image size. The spec requires tRNS to precede the first IDAT,
+ * so the search stops there rather than walking the whole pixel payload.
+ */
+function iwc_png_has_trns_chunk($handle): bool {
+    // The 26 bytes already consumed cover the signature (8), IHDR's length
+    // and type (8), and 10 of IHDR's 13 data bytes.
+    if (fseek($handle, 33) !== 0) {
+        return false;
+    }
+
+    // Bounded rather than while(true): a corrupt length field could otherwise
+    // spin here, and no real PNG has anything like this many chunks before
+    // its first IDAT.
+    for ($i = 0; $i < 1024; $i++) {
+        $chunk_header = fread($handle, 8);
+        if ($chunk_header === false || strlen($chunk_header) < 8) {
+            return false;
+        }
+
+        $length = unpack('N', substr($chunk_header, 0, 4))[1];
+        $type = substr($chunk_header, 4, 4);
+
+        if ($type === 'tRNS') {
+            return true;
+        }
+        if ($type === 'IDAT' || $type === 'IEND') {
+            return false;
+        }
+
+        // +4 to step over the chunk's trailing CRC as well as its data.
+        if (fseek($handle, $length + 4, SEEK_CUR) !== 0) {
+            return false;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -304,6 +364,58 @@ function iwc_apply_exif_orientation(&$image, string $source_path): void {
 }
 
 /**
+ * Remember, or recall, the image metadata read from a source file before it
+ * was replaced by its WEBP version.
+ *
+ * Conversion happens in the wp_handle_upload filter, which runs before
+ * WordPress creates the attachment and calls wp_read_image_metadata() — by
+ * which point the JPEG carrying the EXIF/IPTC is gone and WEBP cannot supply
+ * it. Without this, every automatic caption, title, credit, copyright and
+ * camera/timestamp record was silently dropped on upload, which for anyone
+ * uploading photographs is real data loss rather than an optimisation.
+ *
+ * A request-scoped static is sufficient and correct here: media_handle_upload()
+ * creates the attachment in the same request that ran the upload filter, so
+ * the value is always written and read within one page load. Persisting it
+ * would only leave cruft behind when an upload fails partway.
+ *
+ * @param array|null $meta Pass an array to store; omit to retrieve.
+ * @return array|null
+ */
+function iwc_remembered_image_meta(string $path, ?array $meta = null): ?array {
+    static $store = [];
+
+    if ($meta !== null) {
+        $store[$path] = $meta;
+        return $meta;
+    }
+
+    return $store[$path] ?? null;
+}
+
+/**
+ * Read a source image's EXIF/IPTC through WordPress's own reader, so what we
+ * stash is exactly what WordPress would have recorded itself.
+ */
+function iwc_read_source_image_metadata(string $source_path): ?array {
+    if (!function_exists('wp_read_image_metadata')) {
+        $image_include = ABSPATH . 'wp-admin/includes/image.php';
+        if (!file_exists($image_include)) {
+            return null;
+        }
+        require_once $image_include;
+    }
+
+    if (!function_exists('wp_read_image_metadata')) {
+        return null;
+    }
+
+    $meta = wp_read_image_metadata($source_path);
+
+    return is_array($meta) ? $meta : null;
+}
+
+/**
  * Convert a single uploaded JPG/JPEG/PNG file to WEBP in place and rewrite
  * the upload array so WordPress stores/serves the WEBP version.
  *
@@ -338,8 +450,16 @@ function iwc_convert_upload_to_webp(array $upload, int $quality = 82): array {
 
     $webp_path = iwc_resolve_webp_target_path($upload['file']);
 
+    // Read this before the source is deleted below — it's the last moment the
+    // EXIF/IPTC still exists.
+    $image_meta = iwc_read_source_image_metadata($upload['file']);
+
     if (!iwc_convert_image_file_to_webp($upload['file'], $mime_type, $webp_path, $quality)) {
         return $upload;
+    }
+
+    if ($image_meta !== null) {
+        iwc_remembered_image_meta($webp_path, $image_meta);
     }
 
     @unlink($upload['file']);

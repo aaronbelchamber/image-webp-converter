@@ -74,8 +74,20 @@ class IWC_Admin {
         <div class="wrap">
             <h1>Image WebP Converter</h1>
 
-            <?php if (isset($_GET['iwc_message'])) : ?>
-                <div class="notice notice-success is-dismissible"><p><?php echo esc_html(sanitize_text_field(wp_unslash($_GET['iwc_message']))); ?></p></div>
+            <?php
+            // A count, not a message: passing notice text through the URL let
+            // anyone craft a link that displayed arbitrary wording inside the
+            // plugin's own admin screen. Escaping made it harmless to render,
+            // but the text should never have been the caller's to choose.
+            if (isset($_GET['iwc_moved'])) :
+                $moved = absint($_GET['iwc_moved']);
+                ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php echo esc_html(sprintf(
+                        _n('%d image moved to the holding folder.', '%d images moved to the holding folder.', $moved, 'image-webp-converter'),
+                        $moved
+                    )); ?></p>
+                </div>
             <?php endif; ?>
 
             <h2 class="nav-tab-wrapper">
@@ -309,7 +321,7 @@ class IWC_Admin {
         $redirect = add_query_arg([
             'page' => 'image-webp-converter',
             'tab' => 'cleanup',
-            'iwc_message' => rawurlencode(sprintf('%d image(s) moved to the holding folder.', $moved)),
+            'iwc_moved' => $moved,
         ], admin_url('options-general.php'));
 
         wp_safe_redirect($redirect);

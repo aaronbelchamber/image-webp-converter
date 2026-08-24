@@ -74,10 +74,26 @@ class IWC_Ajax {
             $ids = array_slice($ids, 0, self::MAX_BATCH_SIZE);
         }
 
+        // Serialise batches across requests. Without this two tabs can each
+        // pass convert_attachment()'s already-converted check for the same
+        // image before either has written its result, and both convert it.
+        if (!IWC_Lock::acquire()) {
+            wp_send_json_error([
+                'message' => 'Another bulk conversion is already running. Wait for it to finish, or reload this page.',
+            ], 409);
+        }
+
         $quality = (int) get_option(IWC_OPTION_QUALITY, 82);
         $results = [];
-        foreach ($ids as $attachment_id) {
-            $results[$attachment_id] = IWC_Bulk_Converter::convert_attachment($attachment_id, $bucket, $quality);
+
+        try {
+            foreach ($ids as $attachment_id) {
+                $results[$attachment_id] = IWC_Bulk_Converter::convert_attachment($attachment_id, $bucket, $quality);
+            }
+        } finally {
+            // Must not survive a fatal in one image's conversion, or the
+            // whole feature stays locked until the timeout expires.
+            IWC_Lock::release();
         }
 
         wp_send_json_success(['results' => $results]);

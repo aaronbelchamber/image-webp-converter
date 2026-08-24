@@ -3,7 +3,7 @@
  * Plugin Name:       Image WebP Converter
  * Plugin URI:        https://tools.belchamber.us/image-webp-converter
  * Description:       Automatically converts newly uploaded JPG/JPEG/PNG images to WEBP to cut file size and speed up your site, and can safely convert your existing Media Library too. Zero config required.
- * Version:           1.3.0
+ * Version:           1.3.1
  * Requires PHP:      7.4
  * Author:            Aaron Belchamber
  * Author URI:        https://belchamber.us
@@ -16,13 +16,14 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
 }
 
-define('IWC_VERSION', '1.3.0');
+define('IWC_VERSION', '1.3.1');
 define('IWC_OPTION_QUALITY', 'iwc_quality');
 define('IWC_OPTION_ENABLED', 'iwc_enabled');
 define('IWC_PLUGIN_FILE', __FILE__);
 
 require_once plugin_dir_path(__FILE__) . 'src/convert-images-to-webp.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-compat.php';
+require_once plugin_dir_path(__FILE__) . 'src/class-iwc-lock.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-db.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-logger.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-bulk-converter.php';
@@ -57,3 +58,14 @@ add_filter('wp_handle_upload', function (array $upload): array {
     $quality = (int) get_option(IWC_OPTION_QUALITY, 82);
     return iwc_convert_upload_to_webp($upload, $quality);
 });
+
+/**
+ * Hand WordPress the EXIF/IPTC read from the original file, since by the time
+ * it asks for it the source has been replaced by a WEBP that cannot carry it.
+ * Without this, captions, credits, copyright and camera data were dropped on
+ * every converted upload.
+ */
+add_filter('wp_read_image_metadata', function ($meta, $file) {
+    $remembered = iwc_remembered_image_meta((string) $file);
+    return is_array($remembered) ? $remembered : $meta;
+}, 10, 2);
