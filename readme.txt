@@ -4,7 +4,7 @@ Tags: images, webp, performance, optimization, media
 Requires at least: 5.6
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,15 @@ Image WebP Converter hooks into the WordPress media uploader and converts every 
 
 Requires the PHP GD extension (enabled on almost every host by default).
 
+= WP-CLI =
+
+For large libraries, use WP-CLI rather than the browser — it has no request timeout to run into:
+
+`wp iwc scan` — report what a conversion run would find, changing nothing.
+`wp iwc convert --dry-run` — list exactly what would be converted.
+`wp iwc convert` — convert everything eligible. Accepts `--bucket=`, `--limit=` and `--quality=`.
+`wp iwc status` — totals and space reclaimed so far.
+
 Part of a small family of free WordPress utilities — more at [tools.belchamber.us](https://tools.belchamber.us).
 
 == Installation ==
@@ -26,6 +35,10 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 
 == Changelog ==
 
+= 1.4.0 =
+* Added: WP-CLI commands — `wp iwc scan`, `wp iwc convert` and `wp iwc status`. The browser bulk converter is limited by what an admin-ajax request can survive; on a large library this is the one that finishes. Supports `--dry-run`, `--bucket`, `--limit` and `--quality`, and shares the same lock as the browser path so the two can't collide.
+* Added: PNG conversions now try a lossless encode alongside the lossy one and keep whichever is smaller. Logos, icons, screenshots and flat graphics compress dramatically better lossless — often smaller than the source PNG. This also makes transparent images convertible at all: at the alpha quality floor many encoded larger than the PNG they'd replace and were rejected outright. Overridable with the `iwc_try_lossless` filter. Requires PHP 8.1; older versions encode lossy as before.
+* Added: the page-builder, competing-optimiser and custom-table plugin lists are now filterable (`iwc_page_builders`, `iwc_conflicting_optimizers`, `iwc_custom_table_plugins`), so a site can declare something these signatures don't recognise and have it treated with the same caution.
 = 1.3.1 =
 * Fixed: image URLs stored inside block attributes (a Cover block's background, for instance) have their slashes escaped by WordPress, so they were found by the reference scan but never actually rewritten.
 * Fixed: EXIF and IPTC data — caption, credit, copyright, camera and timestamp — was discarded on every converted upload, because conversion happens before WordPress reads it and WEBP cannot carry it. The original's metadata is now preserved through conversion, and existing metadata survives bulk conversion too.

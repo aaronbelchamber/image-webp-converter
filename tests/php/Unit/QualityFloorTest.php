@@ -29,8 +29,15 @@ final class QualityFloorTest extends TestCase {
         // guard legitimately rejects them. This test is about which quality
         // was honored, not whether the result was worth keeping, so opt out of
         // that guard rather than reshape the fixtures around it.
+        // Also switches off the lossless attempt: a quality floor only means
+        // anything for a lossy encode, and for these fixtures lossless wins
+        // on size, which would make the size-based proof below measure the
+        // wrong thing entirely.
         Functions\when('apply_filters')->alias(function (string $hook, $value = null) {
-            return $hook === 'iwc_require_smaller_output' ? false : $value;
+            if ($hook === 'iwc_require_smaller_output' || $hook === 'iwc_try_lossless') {
+                return false;
+            }
+            return $value;
         });
     }
 

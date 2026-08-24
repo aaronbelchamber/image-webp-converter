@@ -4,7 +4,16 @@
          bootstrap="tests/php/bootstrap.php"
          colors="true"
          stopOnFailure="false"
-         cacheResultFile=".phpunit.result.cache">
+         cacheResultFile=".phpunit.result.cache"
+         executionOrder="random"
+         resolveDependencies="true">
+    <!--
+      Randomised order on purpose. IWC_Compat detects plugins with
+      class_exists(), and PHP cannot undeclare a class, so a stand-in declared
+      by one test is visible to every test that runs after it. Two suites have
+      already passed only because of the order they happened to run in — this
+      makes that class of accident fail loudly instead.
+    -->
     <testsuites>
         <testsuite name="unit">
             <directory>tests/php/Unit</directory>

@@ -60,19 +60,22 @@ final class ImageMetadataPreservationTest extends TestCase {
         $this->assertSame('NIKON Z6', $recalled['camera']);
     }
 
-    public function test_nothing_is_remembered_when_the_conversion_is_rejected(): void {
-        // A source WEBP can't improve on: the original is kept, so WordPress
-        // reads its metadata directly and there is nothing to stand in for.
-        $source = $this->tmpPath('flat.png');
-        \IWC\Tests\fixtures\FixtureFactory::transparentPngEllipse($source, 60);
+    public function test_nothing_is_remembered_when_no_conversion_happens(): void {
+        // An ineligible type is passed straight through, so the original file
+        // survives and WordPress reads its metadata directly — there is
+        // nothing for this plugin to stand in for.
+        $source = $this->tmpPath('animation.gif');
+        file_put_contents($source, 'GIF89a-not-really');
         Functions\when('wp_read_image_metadata')->justReturn(['caption' => 'unused']);
 
         $upload = iwc_convert_upload_to_webp(
-            ['file' => $source, 'url' => 'https://example.test/uploads/flat.png', 'type' => 'image/png'],
+            ['file' => $source, 'url' => 'https://example.test/uploads/animation.gif', 'type' => 'image/gif'],
             82
         );
 
-        $this->assertSame('image/png', $upload['type'], 'sanity: this conversion should have been rejected');
-        $this->assertNull(iwc_remembered_image_meta($this->tmpPath('flat.webp')));
+        $this->assertSame('image/gif', $upload['type'], 'an ineligible type must pass through untouched');
+        $this->assertSame($source, $upload['file']);
+        $this->assertNull(iwc_remembered_image_meta($this->tmpPath('animation.webp')));
     }
+
 }

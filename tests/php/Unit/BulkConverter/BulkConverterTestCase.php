@@ -37,6 +37,16 @@ abstract class BulkConverterTestCase extends WpdbTestCase {
         $this->uploadsBasedir = sys_get_temp_dir() . '/iwc-uploads-' . uniqid('', true);
         mkdir($this->uploadsBasedir, 0777, true);
 
+        // Pin the custom-table risk off by default. IWC_Compat detects by
+        // class_exists(), and PHP cannot undeclare a class — so a stand-in
+        // declared by any other test in the run would otherwise leak in here
+        // and silently withhold the destructive path, making these tests pass
+        // or fail on execution order. Tests that care about the risk set it
+        // explicitly (see CustomTableRiskTest).
+        Functions\when('apply_filters')->alias(function (string $hook, $value = null) {
+            return $hook === 'iwc_custom_table_risk' ? false : $value;
+        });
+
         Functions\when('wp_unique_filename')->alias(fn($dir, $name) => $name);
         Functions\when('wp_image_editor_supports')->justReturn(true);
         Functions\when('wp_get_upload_dir')->justReturn([

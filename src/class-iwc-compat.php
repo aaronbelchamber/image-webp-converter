@@ -76,19 +76,40 @@ class IWC_Compat {
         return $found;
     }
 
-    /** @return string[] */
+    /**
+     * Each list is filterable so a site can declare something these
+     * signatures don't know about — a bespoke builder, an in-house plugin
+     * with its own tables — and have it treated with the same caution.
+     *
+     * @return string[]
+     */
     public static function custom_table_plugins(): array {
-        return self::detect(self::CUSTOM_TABLE_PLUGINS);
+        /**
+         * Filters the detected plugins that store image URLs in their own tables.
+         *
+         * @param string[] $detected Plugin names found on this site.
+         */
+        return (array) apply_filters('iwc_custom_table_plugins', self::detect(self::CUSTOM_TABLE_PLUGINS));
     }
 
     /** @return string[] */
     public static function page_builders(): array {
-        return self::detect(self::PAGE_BUILDERS);
+        /**
+         * Filters the detected page builders.
+         *
+         * @param string[] $detected Builder names found on this site.
+         */
+        return (array) apply_filters('iwc_page_builders', self::detect(self::PAGE_BUILDERS));
     }
 
     /** @return string[] */
     public static function conflicting_optimizers(): array {
-        return self::detect(self::CONFLICTING_OPTIMIZERS);
+        /**
+         * Filters the detected competing image optimisers.
+         *
+         * @param string[] $detected Plugin names found on this site.
+         */
+        return (array) apply_filters('iwc_conflicting_optimizers', self::detect(self::CONFLICTING_OPTIMIZERS));
     }
 
     /**

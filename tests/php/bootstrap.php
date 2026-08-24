@@ -17,6 +17,12 @@
 // wp_generate_attachment_metadata().
 define('ABSPATH', __DIR__ . '/fixtures/wp-stub/');
 
+// Plugin-level constants, normally defined by the main plugin file — which
+// the suite deliberately does not load, since it also registers hooks.
+define('IWC_VERSION', 'test');
+define('IWC_OPTION_QUALITY', 'iwc_quality');
+define('IWC_OPTION_ENABLED', 'iwc_enabled');
+
 // wpdb::get_results()'s $output_type constants.
 if (!defined('OBJECT')) {
     define('OBJECT', 'OBJECT');
@@ -150,3 +156,9 @@ require_once dirname(__DIR__, 2) . '/src/class-iwc-compat.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-lock.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-logger.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-bulk-converter.php';
+
+// WP-CLI isn't loadable in a plain PHPUnit run, so the command class is given
+// a recording stand-in rather than being left untested.
+require_once __DIR__ . '/fixtures/FakeWpCli.php';
+require_once __DIR__ . '/fixtures/wp-cli-stub.php';
+require_once dirname(__DIR__, 2) . '/src/class-iwc-cli.php';

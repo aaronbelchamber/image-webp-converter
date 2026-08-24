@@ -256,7 +256,10 @@ function iwc_convert_image_file_to_webp(string $source_path, string $mime_type, 
         return false;
     }
 
-    $ok = imagewebp($image, $webp_path, $quality);
+    // Only PNG sources are worth a lossless attempt. A JPEG is already lossy,
+    // so re-encoding it losslessly means faithfully preserving compression
+    // artefacts at great expense — it loses on size every time.
+    $ok = iwc_encode_webp($image, $webp_path, $quality, $mime_type === 'image/png');
     // imagedestroy() is a deprecated no-op as of PHP 8.0 (GD images are
     // garbage-collected automatically) but still does real cleanup on the
     // PHP 7.4 minimum this plugin supports — guard the call so PHP 8+ hosts
@@ -273,6 +276,65 @@ function iwc_convert_image_file_to_webp(string $source_path, string $mime_type, 
     }
 
     return iwc_accept_webp_output($source_path, $webp_path);
+}
+
+/**
+ * Encode a loaded GD image to $webp_path, keeping whichever of lossy and
+ * lossless comes out smaller.
+ *
+ * Which one wins depends on the picture, and nothing about the file says
+ * which up front. A logo, icon, screenshot or flat graphic — most of what
+ * arrives as a PNG on a website — compresses dramatically smaller lossless,
+ * frequently smaller than the source PNG itself. A photograph saved as PNG is
+ * the opposite, where lossless can be several times larger. So both are
+ * encoded and the smaller is kept.
+ *
+ * For transparent images this is what makes them convertible at all: at the
+ * alpha quality floor they routinely encode larger than the PNG they would
+ * replace, and get rejected outright by the size guard.
+ *
+ * Restricted to PNG sources by the caller, so the doubled encode cost never
+ * lands on the JPEG uploads that make up the bulk of most libraries.
+ *
+ * IMG_WEBP_LOSSLESS needs PHP 8.1; on 7.4 and 8.0 this is a plain lossy
+ * encode.
+ */
+function iwc_encode_webp($image, string $webp_path, int $quality, bool $allow_lossless): bool {
+    /**
+     * Filters whether a lossless encode is attempted alongside the lossy one.
+     *
+     * @param bool $try_lossless Whether to try lossless. Default true.
+     * @param int  $quality      The lossy quality that would otherwise be used.
+     */
+    $try_lossless = $allow_lossless
+        && defined('IMG_WEBP_LOSSLESS')
+        && apply_filters('iwc_try_lossless', true, $quality);
+
+    if (!$try_lossless) {
+        return (bool) @imagewebp($image, $webp_path, $quality);
+    }
+
+    if (!@imagewebp($image, $webp_path, $quality)) {
+        return false;
+    }
+    $lossy_bytes = @filesize($webp_path);
+
+    $lossless_path = $webp_path . '.lossless.tmp';
+    if (!@imagewebp($image, $lossless_path, IMG_WEBP_LOSSLESS)) {
+        @unlink($lossless_path);
+        return true; // The lossy encode already succeeded; keep it.
+    }
+
+    $lossless_bytes = @filesize($lossless_path);
+
+    if ($lossless_bytes !== false && $lossy_bytes !== false && $lossless_bytes < $lossy_bytes) {
+        if (@rename($lossless_path, $webp_path)) {
+            return true;
+        }
+    }
+
+    @unlink($lossless_path);
+    return true;
 }
 
 /**
