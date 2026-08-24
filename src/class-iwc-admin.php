@@ -51,6 +51,18 @@ class IWC_Admin {
                 return !empty($value);
             },
         ]);
+        register_setting('iwc_settings', IWC_OPTION_MODE, [
+            'type' => 'string',
+            'default' => IWC_Sidecar::MODE_REPLACE,
+            'sanitize_callback' => function ($value) {
+                // Anything unrecognised falls back to replace, the mode every
+                // existing install is already on — an unexpected value must
+                // never silently change how a working site behaves.
+                return $value === IWC_Sidecar::MODE_SIDECAR
+                    ? IWC_Sidecar::MODE_SIDECAR
+                    : IWC_Sidecar::MODE_REPLACE;
+            },
+        ]);
     }
 
     public static function enqueue_assets(string $hook): void {
@@ -190,6 +202,7 @@ class IWC_Admin {
     private static function render_settings_tab(): void {
         $quality = (int) get_option(IWC_OPTION_QUALITY, 82);
         $enabled = (bool) get_option(IWC_OPTION_ENABLED, true);
+        $mode = IWC_Sidecar::mode();
         $backend = iwc_webp_backend();
         ?>
         <?php if ($backend === '') : ?>
@@ -220,6 +233,23 @@ class IWC_Admin {
                             <input type="checkbox" name="<?php echo esc_attr(IWC_OPTION_ENABLED); ?>" value="1" <?php checked($enabled); ?> />
                             <?php echo esc_html__('Convert new JPG/PNG uploads to WebP automatically', 'image-webp-converter'); ?>
                         </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php echo esc_html__('What to do with the original', 'image-webp-converter'); ?></th>
+                    <td>
+                        <fieldset>
+                            <label style="display:block; margin-bottom:8px;">
+                                <input type="radio" name="<?php echo esc_attr(IWC_OPTION_MODE); ?>" value="<?php echo esc_attr(IWC_Sidecar::MODE_REPLACE); ?>" <?php checked($mode, IWC_Sidecar::MODE_REPLACE); ?> />
+                                <strong><?php echo esc_html__('Replace it', 'image-webp-converter'); ?></strong>
+                                — <?php echo esc_html__('the JPG or PNG becomes a WebP and its links are updated. Smallest result, and what this plugin has always done.', 'image-webp-converter'); ?>
+                            </label>
+                            <label style="display:block;">
+                                <input type="radio" name="<?php echo esc_attr(IWC_OPTION_MODE); ?>" value="<?php echo esc_attr(IWC_Sidecar::MODE_SIDECAR); ?>" <?php checked($mode, IWC_Sidecar::MODE_SIDECAR); ?> />
+                                <strong><?php echo esc_html__('Keep it and serve WebP alongside', 'image-webp-converter'); ?></strong>
+                                — <?php echo esc_html__('the original stays exactly where it is and a WebP is written next to it, offered to browsers that support it. No link ever changes, so nothing can break — page builders, translation plugins, sliders and hardcoded theme CSS all keep working untouched. Uses more disk, since both files exist.', 'image-webp-converter'); ?>
+                            </label>
+                        </fieldset>
                     </td>
                 </tr>
                 <tr>
@@ -283,6 +313,13 @@ class IWC_Admin {
     }
 
     private static function render_convert_tab(): void {
+        if (IWC_Sidecar::is_active()) : ?>
+            <div class="notice notice-info">
+                <p><?php echo esc_html__('This site is set to keep originals and serve WebP alongside them, so there is nothing to convert here — WebP versions are written automatically as images are uploaded, and no links need updating.', 'image-webp-converter'); ?></p>
+                <p><?php echo esc_html__('Existing images have their WebP versions built when WordPress next regenerates their sizes. To do the whole library at once, run: wp iwc sidecar', 'image-webp-converter'); ?></p>
+            </div>
+        <?php endif;
+
         self::render_compat_notices();
         ?>
         <p><?php echo esc_html__('Scans your Media Library for JPG/PNG images and converts what is safe to convert automatically. Images already used somewhere are handled carefully — see the summary below before starting.', 'image-webp-converter'); ?></p>

@@ -22,6 +22,7 @@ define('ABSPATH', __DIR__ . '/fixtures/wp-stub/');
 define('IWC_VERSION', 'test');
 define('IWC_OPTION_QUALITY', 'iwc_quality');
 define('IWC_OPTION_ENABLED', 'iwc_enabled');
+define('IWC_OPTION_MODE', 'iwc_mode');
 
 // wpdb::get_results()'s $output_type constants.
 if (!defined('OBJECT')) {
@@ -159,6 +160,7 @@ if (!function_exists('wp_mkdir_p')) {
 // --- Load the real plugin source under test ---
 require_once dirname(__DIR__, 2) . '/src/convert-images-to-webp.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-compat.php';
+require_once dirname(__DIR__, 2) . '/src/class-iwc-sidecar.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-lock.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-logger.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-bulk-converter.php';

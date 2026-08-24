@@ -3,7 +3,7 @@
  * Plugin Name:       Image WebP Converter
  * Plugin URI:        https://tools.belchamber.us/image-webp-converter
  * Description:       Automatically converts newly uploaded JPG/JPEG/PNG images to WEBP to cut file size and speed up your site, and can safely convert your existing Media Library too. Zero config required.
- * Version:           1.6.0
+ * Version:           1.7.0
  * Requires PHP:      7.4
  * Author:            Aaron Belchamber
  * Author URI:        https://belchamber.us
@@ -16,13 +16,15 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
 }
 
-define('IWC_VERSION', '1.6.0');
+define('IWC_VERSION', '1.7.0');
 define('IWC_OPTION_QUALITY', 'iwc_quality');
 define('IWC_OPTION_ENABLED', 'iwc_enabled');
+define('IWC_OPTION_MODE', 'iwc_mode');
 define('IWC_PLUGIN_FILE', __FILE__);
 
 require_once plugin_dir_path(__FILE__) . 'src/convert-images-to-webp.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-compat.php';
+require_once plugin_dir_path(__FILE__) . 'src/class-iwc-sidecar.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-lock.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-db.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-logger.php';
@@ -35,6 +37,7 @@ add_action('admin_init', ['IWC_DB', 'maybe_upgrade']);
 
 IWC_Admin::init();
 IWC_Ajax::register();
+IWC_Sidecar::register();
 
 // The browser bulk converter is bounded by what an admin-ajax request can
 // survive; on a large library WP-CLI is the tool that actually finishes.
@@ -59,6 +62,13 @@ add_filter('wp_handle_upload', function (array $upload): array {
      * @param array $upload The upload array passed through wp_handle_upload.
      */
     if (apply_filters('iwc_skip_conversion', false, $upload)) {
+        return $upload;
+    }
+
+    // Sidecar mode leaves the upload exactly as it arrived. The .webp is
+    // written alongside it once WordPress has generated the intermediate
+    // sizes -- see IWC_Sidecar::on_metadata_generated().
+    if (IWC_Sidecar::is_active()) {
         return $upload;
     }
 

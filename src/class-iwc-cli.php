@@ -21,6 +21,99 @@ class IWC_CLI {
         WP_CLI::add_command('iwc scan', [__CLASS__, 'scan']);
         WP_CLI::add_command('iwc convert', [__CLASS__, 'convert']);
         WP_CLI::add_command('iwc status', [__CLASS__, 'status']);
+        WP_CLI::add_command('iwc sidecar', [__CLASS__, 'sidecar']);
+    }
+
+    /**
+     * Build WEBP sidecars for the existing Media Library.
+     *
+     * Only meaningful in sidecar mode. New uploads get theirs automatically;
+     * this is for everything that was already there. Nothing is replaced,
+     * moved or rewritten — the worst case is wasted CPU, so unlike the
+     * converter this needs no scanning, no bucketing and no review step.
+     *
+     * ## OPTIONS
+     *
+     * [--dry-run]
+     * : Report what would be built without writing anything.
+     *
+     * [--limit=<number>]
+     * : Stop after this many attachments.
+     *
+     * [--quality=<number>]
+     * : Override the configured WEBP quality for this run.
+     *
+     * ## EXAMPLES
+     *
+     *     wp iwc sidecar --dry-run
+     *     wp iwc sidecar
+     *
+     * @when after_wp_load
+     */
+    public static function sidecar(array $args = [], array $assoc_args = []): void {
+        global $wpdb;
+
+        if (!IWC_Sidecar::is_active()) {
+            WP_CLI::error('This site is not in sidecar mode. Set it under Settings > WebP Converter, or use "wp iwc convert" instead.');
+            return;
+        }
+
+        $dry_run = !empty($assoc_args['dry-run']);
+        $limit = isset($assoc_args['limit']) ? max(0, (int) $assoc_args['limit']) : 0;
+        $quality = isset($assoc_args['quality'])
+            ? max(0, min(100, (int) $assoc_args['quality']))
+            : (int) get_option(IWC_OPTION_QUALITY, 82);
+
+        $attachment_ids = $wpdb->get_col(
+            "SELECT ID FROM {$wpdb->posts}
+             WHERE post_type = 'attachment'
+               AND post_mime_type IN ('image/jpeg', 'image/png')
+             ORDER BY ID ASC"
+        );
+
+        if ($limit > 0) {
+            $attachment_ids = array_slice($attachment_ids, 0, $limit);
+        }
+
+        if (empty($attachment_ids)) {
+            WP_CLI::success('No JPG or PNG attachments found.');
+            return;
+        }
+
+        $built = 0;
+        $skipped = 0;
+
+        foreach ($attachment_ids as $attachment_id) {
+            foreach (IWC_Sidecar::files_for((int) $attachment_id) as $file) {
+                if ($dry_run) {
+                    if (file_exists($file) && !file_exists(IWC_Sidecar::sidecar_for($file))) {
+                        WP_CLI::log(sprintf('would build %s', IWC_Sidecar::sidecar_for($file)));
+                        $built++;
+                    }
+                    continue;
+                }
+
+                if (IWC_Sidecar::generate($file, $quality)) {
+                    $built++;
+                } else {
+                    // Already present, not convertible, or the WEBP came out
+                    // no smaller than the source and was discarded.
+                    $skipped++;
+                }
+            }
+        }
+
+        if ($dry_run) {
+            WP_CLI::success(sprintf('%d sidecar(s) would be built. Nothing was written.', $built));
+            return;
+        }
+
+        WP_CLI::success(sprintf(
+            '%d sidecar(s) built across %d attachment(s); %d file(s) needed none.',
+            $built,
+            count($attachment_ids),
+            $skipped
+        ));
     }
 
     /**

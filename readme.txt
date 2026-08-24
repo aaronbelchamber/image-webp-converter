@@ -4,7 +4,7 @@ Tags: images, webp, performance, optimization, media
 Requires at least: 5.6
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,11 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 
 == Changelog ==
 
+= 1.7.0 =
+* New: a second conversion mode, "Keep it and serve WebP alongside". The original JPG or PNG stays exactly where it is and a WebP is written next to it, offered to browsers that support it. No link ever changes, so nothing can break — page builders, translation plugins, sliders, hardcoded theme CSS, external links and search-engine caches all keep working untouched, and no reference scanning is involved at all. It uses more disk, since both files exist. That is the trade.
+* The existing behaviour is unchanged and remains the default. Nothing switches mode on its own; the new mode is opt-in from Settings > WebP Converter.
+* Added `wp iwc sidecar` to build WebP versions for an existing Media Library in that mode. Nothing is replaced, moved or rewritten, so unlike the converter it needs no scan, no buckets and no review step.
+* Deleting an attachment now removes its WebP versions too, rather than leaving orphans behind.
 = 1.6.0 =
 * The plugin is now fully translatable. Every string in the admin screens, the AJAX responses and the bulk-converter's status messages goes through WordPress's translation functions with a text domain matching the plugin slug, so translate.wordpress.org can pick it up. Strings containing a number are passed to translators as placeholders rather than having the count welded to the front of the sentence, since several languages need it elsewhere.
 * The JavaScript on the Convert Existing Images tab is translated too, via strings passed in from PHP. A test checks the keys the script asks for and the strings PHP supplies still match — a rename there used to fail silently, leaving the interface in English and looking entirely normal.
@@ -86,6 +91,9 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 * Initial version.
 
 == Frequently Asked Questions ==
+
+= Which mode should I use? =
+"Replace" gives the smallest result and is the default. Choose "keep it and serve WebP alongside" if your site uses a page builder, a translation plugin, a slider, or anything else that stores image URLs where a database search cannot reach them — in that mode nothing has to be found or rewritten, so nothing can be missed.
 
 = Does this touch my existing media library? =
 Only when you ask it to. New uploads are converted automatically; your existing library is left alone until you run
