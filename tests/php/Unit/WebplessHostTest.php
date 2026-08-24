@@ -26,8 +26,17 @@ use IWC\Tests\fixtures\FixtureFactory;
 final class WebplessHostTest extends TestCase {
     protected function setUp(): void {
         parent::setUp();
-        if (function_exists('imagewebp')) {
-            $this->markTestSkipped('GD on this host can encode WEBP, so there is nothing to prove here.');
+
+        // Gated on "no backend at all", not "GD cannot encode WEBP".
+        //
+        // Those were the same condition when GD was the only encoder, and are
+        // not any more: a host whose GD lacks WebP but which has Imagick now
+        // converts perfectly well, and asserting a refusal there tests the
+        // opposite of the intended behaviour. What this class is about is a
+        // host that cannot produce a WEBP by any route.
+        Functions\when('wp_image_editor_supports')->justReturn(true);
+        if (iwc_webp_backend() !== '') {
+            $this->markTestSkipped('This host can encode WEBP via ' . iwc_webp_backend() . ', so there is nothing to prove here.');
         }
     }
 

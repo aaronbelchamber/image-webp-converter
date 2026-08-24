@@ -125,13 +125,76 @@ function iwc_resolve_webp_target_path(string $source_path): string {
  * silently leave an image with no responsive sizes.
  */
 function iwc_environment_supports_webp(): bool {
-    if (!extension_loaded('gd') || !function_exists('imagewebp')) {
+    return iwc_webp_backend() !== '';
+}
+
+/**
+ * Which imaging library will do the encoding: 'gd', 'imagick', or '' for
+ * neither.
+ *
+ * GD is tried first and keeps its existing conditions, so nothing changes for
+ * the overwhelming majority of hosts. Imagick is a fallback for the case that
+ * previously produced no conversion at all: a host whose GD was built without
+ * WebP while ImageMagick is perfectly capable of it. Those installations were
+ * silently doing nothing.
+ *
+ * Ordering is deliberate rather than a judgement about quality. Imagick is
+ * arguably the better encoder — it keeps ICC profiles and handles CMYK
+ * natively — but the GD path is the one with years of use behind it, and
+ * quietly switching every working site to a different encoder is not a
+ * change worth making as a side effect of adding a fallback. A site that
+ * wants Imagick everywhere can say so through the filter.
+ */
+function iwc_webp_backend(): string {
+    // WordPress has to be able to read a WEBP back before it is worth writing
+    // one at all, whichever library does the writing. Without that,
+    // wp_generate_attachment_metadata() cannot build a single intermediate
+    // size and the attachment silently ends up with no srcset — worse than
+    // not converting.
+    //
+    // This is a precondition on the whole operation, not a property of one
+    // encoder: wp_image_editor_supports() reports on WordPress's own editors,
+    // so a false here means WordPress cannot handle WEBP no matter who
+    // produced the file. Treating it as a GD-only concern let an
+    // Imagick fallback slip past a gate that had nothing to do with GD.
+    $readable = function_exists('wp_image_editor_supports')
+        ? (bool) wp_image_editor_supports(['mime_type' => 'image/webp'])
+        : (function_exists('imagecreatefromwebp') || iwc_imagick_supports_webp());
+
+    $backend = '';
+
+    if ($readable) {
+        if (extension_loaded('gd') && function_exists('imagewebp')) {
+            $backend = 'gd';
+        } elseif (iwc_imagick_supports_webp()) {
+            $backend = 'imagick';
+        }
+    }
+
+    /**
+     * Filters which imaging backend performs the conversion.
+     *
+     * @param string $backend 'gd', 'imagick', or '' when neither can encode WEBP.
+     */
+    $backend = (string) apply_filters('iwc_webp_backend', $backend);
+
+    return in_array($backend, ['gd', 'imagick'], true) ? $backend : '';
+}
+
+/** Whether Imagick is loaded and its build actually includes WEBP. */
+function iwc_imagick_supports_webp(): bool {
+    if (!class_exists('Imagick')) {
         return false;
     }
-    if (function_exists('wp_image_editor_supports')) {
-        return wp_image_editor_supports(['mime_type' => 'image/webp']);
+
+    try {
+        // An Imagick built without a WebP delegate still exposes the class and
+        // accepts setImageFormat('webp'), then fails at write time. Asking the
+        // delegate list is the only reliable check.
+        return !empty(Imagick::queryFormats('WEBP'));
+    } catch (\Throwable $e) {
+        return false;
     }
-    return function_exists('imagecreatefromwebp');
 }
 
 /**
@@ -203,7 +266,8 @@ function iwc_convert_image_file_to_webp(string $source_path, string $mime_type, 
         return false;
     }
 
-    if (!iwc_environment_supports_webp()) {
+    $backend = iwc_webp_backend();
+    if ($backend === '') {
         return false;
     }
 
@@ -218,11 +282,11 @@ function iwc_convert_image_file_to_webp(string $source_path, string $mime_type, 
     // Web images should never be CMYK. GD alone can't be trusted to convert
     // it correctly — it's a known source of inverted colors on Adobe-tagged
     // CMYK JPEGs (virtually all CMYK JPEGs from Photoshop/print exports).
-    // Imagick handles the colorspace transform correctly when available; if
-    // it isn't, skip conversion (keep the original) rather than risk
-    // shipping a color-inverted image — a skipped conversion is safe, a
-    // silently wrong-colored one live on the site is not.
-    if ($is_cmyk_jpeg && !class_exists('Imagick')) {
+    // Imagick handles the colorspace transform correctly, so the GD path
+    // borrows it and refuses when it isn't there; the Imagick backend needs
+    // no such guard because it is Imagick. A skipped conversion is safe, a
+    // silently colour-inverted one live on the site is not.
+    if ($is_cmyk_jpeg && $backend === 'gd' && !class_exists('Imagick')) {
         return false;
     }
 
@@ -241,6 +305,149 @@ function iwc_convert_image_file_to_webp(string $source_path, string $mime_type, 
 
     $quality = max(0, min(100, $quality));
 
+    $ok = $backend === 'imagick'
+        ? iwc_convert_with_imagick($source_path, $mime_type, $webp_path, $quality)
+        : iwc_convert_with_gd($source_path, $mime_type, $webp_path, $quality, $is_cmyk_jpeg);
+
+    if (!$ok) {
+        // A failed encode can still have created (and left behind) an empty
+        // or truncated file at the target path.
+        @unlink($webp_path);
+        return false;
+    }
+
+    return iwc_accept_webp_output($source_path, $webp_path);
+}
+
+/**
+ * Encode via ImageMagick.
+ *
+ * Reaches hosts the GD path cannot: a PHP built with a GD that has no WebP
+ * delegate, on a server where ImageMagick handles WebP perfectly well. Those
+ * installations previously converted nothing at all and said nothing about it.
+ *
+ * Deliberately mirrors the GD path's decisions rather than inventing its own —
+ * same colourspace correction, same orientation baking, same alpha quality
+ * floor, same lossless-versus-lossy comparison — so which library happened to
+ * be available does not change what the site ends up serving.
+ *
+ * One genuine difference: ImageMagick carries the ICC profile across, where GD
+ * discards it. That costs a few hundred bytes and is the correct behaviour;
+ * dropping a profile silently shifts colour on wide-gamut images.
+ */
+function iwc_convert_with_imagick(string $source_path, string $mime_type, string $webp_path, int $quality): bool {
+    try {
+        $imagick = new Imagick();
+        $imagick->readImage($source_path);
+
+        if ($imagick->getImageColorspace() === Imagick::COLORSPACE_CMYK) {
+            $imagick->transformImageColorspace(Imagick::COLORSPACE_SRGB);
+        }
+
+        iwc_imagick_apply_orientation($imagick);
+
+        $has_alpha = $mime_type === 'image/png' && $imagick->getImageAlphaChannel();
+        if ($has_alpha) {
+            $quality = max($quality, IWC_MIN_QUALITY_FOR_ALPHA);
+        }
+
+        $imagick->setImageFormat('webp');
+        $imagick->setImageCompressionQuality($quality);
+
+        $written = iwc_imagick_write_smallest($imagick, $webp_path, $mime_type === 'image/png');
+
+        $imagick->clear();
+        $imagick->destroy();
+
+        return $written;
+    } catch (\Throwable $e) {
+        // Any ImageMagick failure is treated exactly like a refused
+        // conversion: the caller keeps the original untouched.
+        return false;
+    }
+}
+
+/**
+ * Bake the EXIF orientation into the pixels and clear the tag.
+ *
+ * WEBP does not carry orientation the way browsers honour it for JPEG, so an
+ * image left relying on the tag displays rotated. Clearing it afterwards
+ * matters as much as applying it: a WEBP that is both already-rotated and
+ * still tagged gets rotated a second time by anything that reads the tag.
+ */
+function iwc_imagick_apply_orientation(Imagick $imagick): void {
+    if (method_exists($imagick, 'autoOrient')) {
+        $imagick->autoOrient();
+        return;
+    }
+
+    // ImageMagick older than 6.5.9 has no autoOrient(); the five orientations
+    // that actually occur in the wild are handled by hand.
+    $transparent = new ImagickPixel('none');
+    switch ($imagick->getImageOrientation()) {
+        case Imagick::ORIENTATION_TOPRIGHT:
+            $imagick->flopImage();
+            break;
+        case Imagick::ORIENTATION_BOTTOMRIGHT:
+            $imagick->rotateImage($transparent, 180);
+            break;
+        case Imagick::ORIENTATION_BOTTOMLEFT:
+            $imagick->flipImage();
+            break;
+        case Imagick::ORIENTATION_RIGHTTOP:
+            $imagick->rotateImage($transparent, 90);
+            break;
+        case Imagick::ORIENTATION_LEFTBOTTOM:
+            $imagick->rotateImage($transparent, -90);
+            break;
+    }
+    $imagick->setImageOrientation(Imagick::ORIENTATION_TOPLEFT);
+}
+
+/**
+ * Write the image, keeping whichever of lossy and lossless is smaller.
+ *
+ * Same reasoning as the GD path: which one wins depends on the picture, not on
+ * the format, and nothing about the file says which up front. Restricted to
+ * PNG sources by the caller so the doubled encode never lands on JPEGs, where
+ * lossless would faithfully preserve compression artefacts at great expense
+ * and lose every time.
+ */
+function iwc_imagick_write_smallest(Imagick $imagick, string $webp_path, bool $allow_lossless): bool {
+    if (!$imagick->writeImage($webp_path)) {
+        return false;
+    }
+
+    /** This filter is shared with the GD path — see iwc_encode_webp(). */
+    if (!$allow_lossless || !apply_filters('iwc_try_lossless', true, $imagick->getImageCompressionQuality())) {
+        return true;
+    }
+
+    $lossy_bytes = @filesize($webp_path);
+    $lossless_path = $webp_path . '.lossless.tmp';
+
+    try {
+        $imagick->setOption('webp:lossless', 'true');
+        $imagick->writeImage($lossless_path);
+    } catch (\Throwable $e) {
+        @unlink($lossless_path);
+        return true; // The lossy encode already succeeded; keep it.
+    }
+
+    $lossless_bytes = @filesize($lossless_path);
+    if ($lossless_bytes !== false && $lossy_bytes !== false && $lossless_bytes < $lossy_bytes
+        && @rename($lossless_path, $webp_path)) {
+        return true;
+    }
+
+    @unlink($lossless_path);
+    return true;
+}
+
+/**
+ * Encode via GD. The original path, unchanged in behaviour.
+ */
+function iwc_convert_with_gd(string $source_path, string $mime_type, string $webp_path, int $quality, bool $is_cmyk_jpeg): bool {
     if ($is_cmyk_jpeg) {
         $image = iwc_load_cmyk_jpeg_as_rgb($source_path);
         if ($image !== false) {
@@ -286,14 +493,9 @@ function iwc_convert_image_file_to_webp(string $source_path, string $mime_type, 
         imagedestroy($image);
     }
 
-    if (!$ok) {
-        // A failed imagewebp() can still have created (and left behind) an
-        // empty or truncated file at the target path.
-        @unlink($webp_path);
-        return false;
-    }
-
-    return iwc_accept_webp_output($source_path, $webp_path);
+    // Cleanup of a failed encode and the is-it-actually-smaller decision both
+    // live in the caller, so the two backends cannot drift apart on them.
+    return $ok;
 }
 
 /**

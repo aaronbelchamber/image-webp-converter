@@ -37,6 +37,23 @@ final class EnvironmentSupportTest extends TestCase {
         $this->assertFalse(iwc_environment_supports_webp());
     }
 
+    public function test_imagick_is_gated_by_the_same_readability_check_as_gd(): void {
+        // Regression guard. When the Imagick backend was added, this
+        // readability check was left attached to the GD branch, so a host
+        // where WordPress cannot read WEBP would reject GD and then quietly
+        // fall through to Imagick — sailing past a gate that was never about
+        // GD in the first place. The result would be a WEBP WordPress cannot
+        // build a single intermediate size from.
+        if (!iwc_imagick_supports_webp()) {
+            $this->markTestSkipped('Imagick with WEBP support is required to exercise the fallback path.');
+        }
+
+        Functions\when('wp_image_editor_supports')->justReturn(false);
+
+        $this->assertSame('', iwc_webp_backend(), 'no backend may be selected when WordPress cannot read WEBP back');
+        $this->assertFalse(iwc_environment_supports_webp());
+    }
+
     public function test_editor_support_check_receives_webp_mime_type(): void {
         if (!extension_loaded('gd') || !function_exists('imagewebp')) {
             $this->markTestSkipped('GD with webp encode support is required to exercise this function meaningfully.');

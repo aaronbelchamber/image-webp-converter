@@ -4,7 +4,7 @@ Tags: images, webp, performance, optimization, media
 Requires at least: 5.6
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Converts JPG/JPEG/PNG images to WEBP to cut file size and speed up your site —
 
 Image WebP Converter hooks into the WordPress media uploader and converts every new JPG, JPEG, or PNG upload to WEBP on the fly — no manual batch jobs, no bulk-scan scripts. Transparency is preserved for PNGs, and conversion quality is adjustable from Settings > WebP Converter.
 
-Requires the PHP GD extension (enabled on almost every host by default).
+Requires either the PHP GD extension (enabled on almost every host by default) or ImageMagick. GD is preferred where it can encode WebP; ImageMagick is used automatically where it cannot.
 
 = WP-CLI =
 
@@ -35,6 +35,10 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 
 == Changelog ==
 
+= 1.5.0 =
+* Added: an ImageMagick encoding backend. Hosts whose GD was built without WebP support — while ImageMagick handles it perfectly well — previously converted nothing at all and gave no indication why. Those installations now work. GD is still used wherever it can encode WebP, so nothing changes for the great majority of sites; the `iwc_webp_backend` filter can force either one.
+* The Imagick path mirrors the GD path's decisions rather than inventing its own: the same colourspace correction for CMYK, the same EXIF orientation baked into the pixels, the same quality floor for transparent images, and the same "keep whichever of lossy and lossless is smaller" comparison. It additionally preserves the ICC colour profile, which GD discards.
+* Fixed: the check that WordPress can read a WebP back — without which it cannot generate a single thumbnail size — was tied to the GD branch while the new backend was being added, so a host that failed it could still fall through to Imagick and produce an image with no responsive sizes. It is now a precondition on conversion regardless of which library encodes.
 = 1.4.1 =
 * Fixed: CMYK JPEG conversion never actually worked. The image is routed through Imagick to correct its colours, and ImageMagick returns a palette image whenever the picture has few enough distinct colours — which WEBP cannot encode at all. Any CMYK image with flat or limited colour (a logo, a print-ready graphic, a solid background) produced a zero-byte file and a failed conversion. It failed safely, leaving the original alone, but the feature did not work. Found by running the test suite in a container with Imagick installed, which is the only way this code path can be reached.
 = 1.4.0 =
