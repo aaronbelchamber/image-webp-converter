@@ -13,7 +13,9 @@ use IWC\Tests\fixtures\FixtureFactory;
  * exactly where the named orientation implies, sampled well inside each
  * region to stay clear of JPEG/WEBP compression bleed at edges.
  *
- * @group requires-imagick
+ * The fixture builds its EXIF segment by hand, so these need only ext-exif —
+ * no Imagick, and therefore no longer skipped on an ordinary workstation.
+ *
  * @covers iwc_apply_exif_orientation
  */
 final class ExifOrientationTest extends TestCase {
@@ -22,8 +24,8 @@ final class ExifOrientationTest extends TestCase {
 
     protected function setUp(): void {
         parent::setUp();
-        if (!FixtureFactory::isImagickAvailable()) {
-            $this->markTestSkipped('ext-imagick is not available in this environment.');
+        if (!function_exists('exif_read_data')) {
+            $this->markTestSkipped('ext-exif is not available in this environment.');
         }
         Functions\when('wp_image_editor_supports')->justReturn(true);
     }

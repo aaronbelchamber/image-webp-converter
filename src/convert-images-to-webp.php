@@ -156,12 +156,30 @@ function iwc_load_cmyk_jpeg_as_rgb(string $file_path) {
         }
         // Round-trip through a lossless intermediate so GD (which has no
         // CMYK awareness at all) only ever sees already-correct RGB data.
+        //
+        // Forced to truecolour on the way out: ImageMagick writes a palette
+        // PNG when the image has few enough distinct colours, and imagewebp()
+        // cannot encode a palette image at all -- it emits "Palette image not
+        // supported by webp" and leaves a zero-byte file. Any CMYK image with
+        // flat or limited colour (a logo, a print-ready graphic, a solid
+        // background) hit that, which is a large share of what arrives as CMYK
+        // in the first place.
+        $imagick->setImageType(Imagick::IMGTYPE_TRUECOLOR);
         $imagick->setImageFormat('png');
         $blob = $imagick->getImageBlob();
         $imagick->clear();
         $imagick->destroy();
 
-        return @imagecreatefromstring($blob);
+        $image = @imagecreatefromstring($blob);
+        if ($image === false) {
+            return false;
+        }
+
+        // Belt and braces: setImageType() covers the encoder side, this covers
+        // whatever GD decided to build on the decoder side.
+        imagepalettetotruecolor($image);
+
+        return $image;
     } catch (\Throwable $e) {
         return false;
     }

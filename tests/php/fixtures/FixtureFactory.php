@@ -127,27 +127,79 @@ class FixtureFactory {
      *
      * @return bool true if the fixture was written and its EXIF round-tripped correctly.
      */
+    /**
+     * A JPEG carrying a real EXIF Orientation tag, with a red marker block in
+     * its top-left quarter so a rotation or flip can be detected by sampling.
+     *
+     * The EXIF segment is assembled byte by byte rather than delegated to
+     * Imagick. Imagick's setImageProperty('exif:Orientation', ...) sets an
+     * in-memory property that is never serialised into an APP1 segment, so the
+     * tag did not survive writeImage() and every orientation test failed on
+     * the fixture rather than on the code under test. Building it here also
+     * drops the Imagick requirement, so these tests now run anywhere GD and
+     * ext-exif are present -- including a plain developer workstation.
+     *
+     * Byte literals are built with chr() rather than "\x.." escapes: the
+     * latter are a standing hazard in a file that gets edited by tooling,
+     * where one lost backslash silently turns the byte 0xFF into the two-byte
+     * UTF-8 encoding of U+00FF and the JPEG stops being a JPEG.
+     */
     public static function orientedJpegWithMarker(string $path, int $orientation, int $width = 40, int $height = 20): bool {
-        if (!self::isImagickAvailable()) {
+        $img = imagecreatetruecolor($width, $height);
+        $blue = imagecolorallocate($img, 0, 0, 255);
+        $red = imagecolorallocate($img, 255, 0, 0);
+        imagefilledrectangle($img, 0, 0, $width - 1, $height - 1, $blue);
+        imagefilledrectangle($img, 0, 0, (int) ($width / 4), (int) ($height / 4), $red);
+
+        ob_start();
+        imagejpeg($img, null, 95);
+        $jpeg = (string) ob_get_clean();
+        if (PHP_VERSION_ID < 80000) {
+            imagedestroy($img);
+        }
+
+        $soi = chr(0xFF) . chr(0xD8);
+        if (strncmp($jpeg, $soi, 2) !== 0) {
             return false;
         }
-        $imagick = new \Imagick();
-        $imagick->newImage($width, $height, new \ImagickPixel('blue'));
-        $imagick->setImageFormat('jpeg');
-        $draw = new \ImagickDraw();
-        $draw->setFillColor(new \ImagickPixel('red'));
-        $draw->rectangle(0, 0, (int) ($width / 4), (int) ($height / 4));
-        $imagick->drawImage($draw);
-        $imagick->setImageProperty('exif:Orientation', (string) $orientation);
-        $imagick->writeImage($path);
-        $imagick->clear();
-        $imagick->destroy();
+
+        // Inserted immediately after SOI, ahead of GD's JFIF APP0.
+        file_put_contents($path, $soi . self::exifOrientationSegment($orientation) . substr($jpeg, 2));
 
         if (!function_exists('exif_read_data')) {
             return false;
         }
         $exif = @exif_read_data($path);
         return $exif && isset($exif['Orientation']) && (int) $exif['Orientation'] === $orientation;
+    }
+
+    /**
+     * A minimal APP1 segment holding nothing but an Orientation tag.
+     *
+     * Layout: APP1 marker, segment length, the "Exif\0\0" identifier, then a
+     * big-endian TIFF header pointing at a single-entry IFD0. The entry is
+     * tag 0x0112 (Orientation), type 3 (SHORT), count 1 -- and because a SHORT
+     * fits inside the entry's own 4-byte value field, the value sits inline in
+     * the high two bytes rather than at an offset elsewhere in the file.
+     */
+    private static function exifOrientationSegment(int $orientation): string {
+        $nul = chr(0);
+
+        $tiff = 'MM'                        // big-endian byte order
+            . pack('n', 0x002A)             // TIFF magic
+            . pack('N', 8);                 // IFD0 starts 8 bytes in
+
+        $ifd = pack('n', 1)                 // one entry
+            . pack('n', 0x0112)             // Orientation
+            . pack('n', 3)                  // type SHORT
+            . pack('N', 1)                  // one value
+            . pack('n', $orientation) . $nul . $nul
+            . pack('N', 0);                 // no next IFD
+
+        $payload = 'Exif' . $nul . $nul . $tiff . $ifd;
+
+        // The length field counts its own two bytes, hence the +2.
+        return chr(0xFF) . chr(0xE1) . pack('n', strlen($payload) + 2) . $payload;
     }
 
     /**

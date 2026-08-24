@@ -4,7 +4,7 @@ Tags: images, webp, performance, optimization, media
 Requires at least: 5.6
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,8 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 
 == Changelog ==
 
+= 1.4.1 =
+* Fixed: CMYK JPEG conversion never actually worked. The image is routed through Imagick to correct its colours, and ImageMagick returns a palette image whenever the picture has few enough distinct colours — which WEBP cannot encode at all. Any CMYK image with flat or limited colour (a logo, a print-ready graphic, a solid background) produced a zero-byte file and a failed conversion. It failed safely, leaving the original alone, but the feature did not work. Found by running the test suite in a container with Imagick installed, which is the only way this code path can be reached.
 = 1.4.0 =
 * Added: WP-CLI commands — `wp iwc scan`, `wp iwc convert` and `wp iwc status`. The browser bulk converter is limited by what an admin-ajax request can survive; on a large library this is the one that finishes. Supports `--dry-run`, `--bucket`, `--limit` and `--quality`, and shares the same lock as the browser path so the two can't collide.
 * Added: PNG conversions now try a lossless encode alongside the lossy one and keep whichever is smaller. Logos, icons, screenshots and flat graphics compress dramatically better lossless — often smaller than the source PNG. This also makes transparent images convertible at all: at the alpha quality floor many encoded larger than the PNG they'd replace and were rejected outright. Overridable with the `iwc_try_lossless` filter. Requires PHP 8.1; older versions encode lossy as before.
