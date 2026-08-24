@@ -1,40 +1,117 @@
+# NOTE: repo-specific. The monorepo (belchamber-plugins-private) carries its
+# own copy at .github/workflows/image-webp-converter-tests.yml with a paths
+# filter and a working-directory, because the plugin sits in a subdirectory
+# there and sits at the root here. These two files must NOT be synced onto
+# each other -- doing so is what left both repos with a workflow that never
+# ran: the monorepo's was nested inside the plugin where GitHub never reads
+# workflows from, and this one filtered on a path that cannot exist here.
+
 name: Tests
+
+# Mirrors the wp-dev-playground variant matrix, so a local
+# `wpp run . --variants all` and a CI run exercise the same environments and
+# their results are directly comparable.
+#
+# The variants are not "supported PHP versions" -- they are deliberately
+# incomplete environments. The branches most likely to be wrong are the ones
+# that only run when an extension is missing or was built without a feature,
+# and no single machine can reach them.
 
 on:
   push:
-    paths:
-      - 'image-webp-converter/**'
   pull_request:
-    paths:
-      - 'image-webp-converter/**'
 
 jobs:
-  test-with-imagick:
+  matrix:
+    name: ${{ matrix.variant }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: image-webp-converter
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '7.4'
-          extensions: gd, imagick, exif, pdo_sqlite
-          coverage: none
-      - run: composer install --no-progress --prefer-dist
-      - run: composer test
 
-  test-without-imagick:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: image-webp-converter
+    strategy:
+      # Every variant reports, always. One failing environment must not hide
+      # the result of the other five -- knowing whether a break is universal
+      # or specific to one environment is the whole point of a matrix.
+      fail-fast: false
+      matrix:
+        include:
+          - variant: php83-full
+            php: '8.3'
+            extensions: gd, exif, imagick, pdo_sqlite
+
+          # Reaches the CMYK-skip guard: without Imagick a CMYK JPEG must be
+          # refused rather than handed to GD, which inverts its colours.
+          - variant: php83-no-imagick
+            php: '8.3'
+            extensions: gd, exif, pdo_sqlite
+
+          # Reaches the "this host cannot encode WebP" refusal.
+          #
+          # setup-php has no GD-without-WebP build, so imagewebp() is disabled
+          # instead. From PHP 8.0 a disabled function is removed from the
+          # function table entirely, so function_exists() reports false --
+          # verified against both 8.3 and 7.4 rather than assumed. Every check
+          # in this plugin routes through function_exists('imagewebp'), so the
+          # observable behaviour is identical to a GD compiled without WebP.
+          # It is a faithful simulation of the condition, not of the build.
+          - variant: php83-gd-no-webp
+            php: '8.3'
+            extensions: gd, exif, pdo_sqlite
+            ini_values: disable_functions=imagewebp
+
+          # Oldest PHP with IMG_WEBP_LOSSLESS, so the lossless encode is live.
+          - variant: php81-full
+            php: '8.1'
+            extensions: gd, exif, imagick, pdo_sqlite
+
+          # No IMG_WEBP_LOSSLESS: proves the lossless path degrades to lossy
+          # rather than fataling.
+          - variant: php80-full
+            php: '8.0'
+            extensions: gd, exif, imagick, pdo_sqlite
+
+          # The plugin's declared minimum, where imagedestroy() still does
+          # real work rather than being a deprecated no-op.
+          - variant: php74-full
+            php: '7.4'
+            extensions: gd, exif, imagick, pdo_sqlite
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '7.4'
-          extensions: gd, exif, pdo_sqlite
+          php-version: ${{ matrix.php }}
+          extensions: ${{ matrix.extensions }}
+          ini-values: ${{ matrix.ini_values }}
           coverage: none
-      - run: composer install --no-progress --prefer-dist
-      - run: composer test:no-imagick
+
+      # Recorded before the suite runs, so a green tick is backed by evidence
+      # the environment was the one it claims. A build flag can be silently
+      # ignored and an extension install can half-succeed; "passed on
+      # php83-no-imagick" means nothing if Imagick was quietly present.
+      - name: Report measured capabilities
+        run: |
+          php -r '$gd = function_exists("gd_info") ? gd_info() : [];
+          echo json_encode([
+            "php"            => PHP_VERSION,
+            "gd"             => extension_loaded("gd"),
+            "gd_webp_encode" => function_exists("imagewebp"),
+            "gd_webp_decode" => function_exists("imagecreatefromwebp"),
+            "webp_lossless"  => defined("IMG_WEBP_LOSSLESS"),
+            "imagick"        => class_exists("Imagick"),
+            "exif"           => function_exists("exif_read_data"),
+          ], JSON_PRETTY_PRINT), "\n";'
+
+      # update rather than install: the committed lock is resolved against
+      # whichever PHP the author happened to be running, and is not
+      # necessarily installable on 7.4. Resolving per environment is the
+      # honest thing for a compatibility matrix, and matches what the
+      # playground does locally so the two agree.
+      - name: Install dependencies
+        run: composer update --no-progress --prefer-dist --no-interaction
+
+      # No --exclude-group here on purpose. Tests that need a capability skip
+      # themselves by checking for it, which stays correct as environments
+      # change; a group tag has to be remembered and drifts silently when it
+      # is not.
+      - name: Run tests
+        run: vendor/bin/phpunit --colors=never
