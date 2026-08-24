@@ -31,9 +31,70 @@ class FakeWpdb {
         $this->postmeta = $this->prefix . 'postmeta';
         $this->options = $this->prefix . 'options';
 
-        $this->pdo = new PDO('sqlite::memory:');
+        // PDO::connect() (PHP 8.4+) returns the driver subclass Pdo\Sqlite,
+        // which is what exposes the non-deprecated createFunction().
+        $this->pdo = method_exists(PDO::class, 'connect')
+            ? PDO::connect('sqlite::memory:')
+            : new PDO('sqlite::memory:');
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->install_mysql_like();
         $this->create_schema();
+    }
+
+    /**
+     * Replace SQLite's LIKE with a MySQL-compatible one.
+     *
+     * MySQL treats backslash as the default LIKE escape character; SQLite has
+     * no default escape at all unless a query writes ESCAPE explicitly. That
+     * difference matters because $wpdb->esc_like() doubles backslashes on the
+     * assumption of MySQL semantics, so a search value containing a backslash
+     * — e.g. the "2024\/05\/photo.jpg" form json_encode() produces, which is
+     * exactly how page builders store paths — matches in production but not
+     * in a naive SQLite stand-in. Without this, the fixture reports a false
+     * negative on the real-world case the bucketing logic exists to catch.
+     *
+     * SQLite implements the LIKE operator by calling the like() SQL function,
+     * and overriding it is supported (it only forfeits an index optimization
+     * this in-memory fixture has no use for). MySQL's default collation is
+     * case-insensitive, hence the /i flag; /s so wildcards span the newlines
+     * that serialized and JSON meta values contain.
+     */
+    private function install_mysql_like(): void {
+        $like = function ($pattern, $subject, $escape = '\\') {
+            if ($pattern === null || $subject === null) {
+                return 0;
+            }
+            return preg_match(
+                self::like_to_regex((string) $pattern, $escape === null || $escape === '' ? '\\' : (string) $escape),
+                (string) $subject
+            ) === 1 ? 1 : 0;
+        };
+
+        // sqliteCreateFunction() is deprecated in PHP 8.5 in favour of
+        // Pdo\Sqlite::createFunction(), which only exists on 8.4+.
+        if (method_exists($this->pdo, 'createFunction')) {
+            $this->pdo->createFunction('like', $like);
+            return;
+        }
+        $this->pdo->sqliteCreateFunction('like', $like);
+    }
+
+    private static function like_to_regex(string $pattern, string $escape): string {
+        $regex = '';
+        $length = strlen($pattern);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $pattern[$i];
+            if ($char === $escape && $i + 1 < $length) {
+                $regex .= preg_quote($pattern[++$i], '/');
+            } elseif ($char === '%') {
+                $regex .= '.*';
+            } elseif ($char === '_') {
+                $regex .= '.';
+            } else {
+                $regex .= preg_quote($char, '/');
+            }
+        }
+        return '/^' . $regex . '$/is';
     }
 
     private function create_schema(): void {

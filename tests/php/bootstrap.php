@@ -119,6 +119,22 @@ if (!function_exists('is_serialized')) {
     }
 }
 
+if (!function_exists('wp_normalize_path')) {
+    // Ported from WordPress core (wp-includes/functions.php), minus the
+    // stream-wrapper branch — uploads paths are never stream URLs in these
+    // tests. The Windows drive-letter uppercasing matters: path_to_url()
+    // compares an attachment path against the uploads basedir, and on Windows
+    // those two can differ in drive-letter case alone.
+    function wp_normalize_path(string $path): string {
+        $path = str_replace('\\', '/', $path);
+        $path = preg_replace('|(?<=.)/+|', '/', $path);
+        if (substr($path, 1, 1) === ':') {
+            $path = ucfirst($path);
+        }
+        return $path;
+    }
+}
+
 if (!function_exists('wp_mkdir_p')) {
     function wp_mkdir_p(string $target): bool {
         if (is_dir($target)) {
@@ -130,5 +146,6 @@ if (!function_exists('wp_mkdir_p')) {
 
 // --- Load the real plugin source under test ---
 require_once dirname(__DIR__, 2) . '/src/convert-images-to-webp.php';
+require_once dirname(__DIR__, 2) . '/src/class-iwc-compat.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-logger.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-bulk-converter.php';

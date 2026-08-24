@@ -22,6 +22,15 @@ abstract class BulkConverterTestCase extends WpdbTestCase {
     /** @var array<int,string> */
     protected array $attachedFiles = [];
 
+    /**
+     * Attachment metadata as it stands before conversion, and as WordPress
+     * regenerates it afterwards. Tests that care about intermediate sizes or
+     * a -scaled original_image override these in place; the defaults describe
+     * a plain single-size image.
+     */
+    protected array $oldMetadata = ['sizes' => []];
+    protected array $newMetadata = ['sizes' => []];
+
     protected function setUp(): void {
         parent::setUp();
 
@@ -36,8 +45,8 @@ abstract class BulkConverterTestCase extends WpdbTestCase {
         ]);
         Functions\when('current_time')->justReturn('2026-01-01 00:00:00');
         Functions\when('is_wp_error')->justReturn(false);
-        Functions\when('wp_get_attachment_metadata')->justReturn(['sizes' => []]);
-        Functions\when('wp_generate_attachment_metadata')->justReturn([]);
+        Functions\when('wp_get_attachment_metadata')->alias(fn() => $this->oldMetadata);
+        Functions\when('wp_generate_attachment_metadata')->alias(fn() => $this->newMetadata);
         Functions\when('wp_update_attachment_metadata')->justReturn(true);
         Functions\when('update_attached_file')->justReturn(true);
 

@@ -23,6 +23,15 @@ final class QualityFloorTest extends TestCase {
     protected function setUp(): void {
         parent::setUp();
         Functions\when('wp_image_editor_supports')->justReturn(true);
+
+        // These fixtures are small synthetic PNGs, which PNG's own compression
+        // handles better than WEBP does — so the "output must be smaller"
+        // guard legitimately rejects them. This test is about which quality
+        // was honored, not whether the result was worth keeping, so opt out of
+        // that guard rather than reshape the fixtures around it.
+        Functions\when('apply_filters')->alias(function (string $hook, $value = null) {
+            return $hook === 'iwc_require_smaller_output' ? false : $value;
+        });
     }
 
     public function test_alpha_png_low_quality_request_is_bumped_to_floor(): void {

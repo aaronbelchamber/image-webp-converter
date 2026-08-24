@@ -23,16 +23,41 @@ class IWC_Ajax {
         if (!current_user_can('manage_options')) {
             wp_send_json_error(['message' => 'Insufficient permissions'], 403);
         }
+
+        // admin_init does not fire on admin-ajax.php, so the schema check
+        // hooked there can't be relied on to have run before these endpoints
+        // are reached — notably on a freshly network-activated site.
+        IWC_DB::maybe_upgrade();
     }
 
+    /**
+     * Bucket one page of the Media Library. The client calls this repeatedly,
+     * passing back the last_id it was given, until `done` comes back true —
+     * scanning the whole library in a single request timed out on any
+     * real-sized library.
+     */
     public static function handle_scan(): void {
         self::check_access();
-        $buckets = IWC_Bulk_Converter::scan();
-        wp_send_json_success([
-            'unreferenced'    => $buckets['unreferenced'],
-            'plain_content'   => $buckets['plain_content'],
-            'serialized_only_count' => count($buckets['serialized_only']),
-        ]);
+
+        $after_id = isset($_POST['after_id']) ? absint($_POST['after_id']) : 0;
+        $result = IWC_Bulk_Converter::scan_batch($after_id);
+
+        $response = [
+            'unreferenced'          => $result['buckets']['unreferenced'],
+            'plain_content'         => $result['buckets']['plain_content'],
+            'serialized_only_count' => count($result['buckets']['serialized_only']),
+            'last_id'               => $result['last_id'],
+            'scanned'               => $result['scanned'],
+            'done'                  => $result['done'],
+        ];
+
+        // Only worth the extra COUNT(*) on the first page, to give the
+        // progress display a denominator.
+        if ($after_id === 0) {
+            $response['total'] = IWC_Bulk_Converter::count_eligible();
+        }
+
+        wp_send_json_success($response);
     }
 
     public static function handle_process_batch(): void {

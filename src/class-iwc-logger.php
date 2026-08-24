@@ -48,14 +48,44 @@ class IWC_Logger {
         $wpdb->update(self::table(), $fields, ['id' => $log_id], $formats, ['%d']);
     }
 
+    /** Most rows any single review screen will render at once. */
+    const REVIEW_LIMIT = 200;
+
     /**
-     * Rows currently awaiting manual cleanup review (bucket = plain_content,
-     * originals not yet moved to the holding folder).
+     * Rows currently awaiting manual cleanup review (originals converted and
+     * every reference rewritten, files not yet moved to the holding folder).
+     *
+     * Capped: a large library can leave thousands of rows here, and rendering
+     * all of them produced a page heavy enough to hang the browser.
      */
-    public static function get_pending_cleanup(): array {
+    public static function get_pending_cleanup(int $limit = self::REVIEW_LIMIT): array {
         global $wpdb;
         $table = self::table();
-        return $wpdb->get_results("SELECT * FROM $table WHERE status = 'pending_cleanup' ORDER BY completed_at DESC");
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table WHERE status = 'pending_cleanup' ORDER BY completed_at DESC LIMIT %d",
+            max(1, $limit)
+        ));
+    }
+
+    /** How many rows are waiting, ignoring the display cap. */
+    public static function count_pending_cleanup(): int {
+        global $wpdb;
+        $table = self::table();
+        return (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE status = 'pending_cleanup'");
+    }
+
+    /**
+     * Rows where the image converted but at least one reference to it could
+     * not be rewritten. Reported only — never offered for cleanup, since
+     * moving those originals would break whatever still points at them.
+     */
+    public static function get_references_failed(int $limit = self::REVIEW_LIMIT): array {
+        global $wpdb;
+        $table = self::table();
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table WHERE status = 'references_failed' ORDER BY completed_at DESC LIMIT %d",
+            max(1, $limit)
+        ));
     }
 
     public static function get_by_ids(array $ids): array {

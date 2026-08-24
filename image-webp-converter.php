@@ -3,7 +3,7 @@
  * Plugin Name:       Image WebP Converter
  * Plugin URI:        https://tools.belchamber.us/image-webp-converter
  * Description:       Automatically converts newly uploaded JPG/JPEG/PNG images to WEBP to cut file size and speed up your site, and can safely convert your existing Media Library too. Zero config required.
- * Version:           1.2.1
+ * Version:           1.3.0
  * Requires PHP:      7.4
  * Author:            Aaron Belchamber
  * Author URI:        https://belchamber.us
@@ -16,12 +16,13 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
 }
 
-define('IWC_VERSION', '1.2.1');
+define('IWC_VERSION', '1.3.0');
 define('IWC_OPTION_QUALITY', 'iwc_quality');
 define('IWC_OPTION_ENABLED', 'iwc_enabled');
 define('IWC_PLUGIN_FILE', __FILE__);
 
 require_once plugin_dir_path(__FILE__) . 'src/convert-images-to-webp.php';
+require_once plugin_dir_path(__FILE__) . 'src/class-iwc-compat.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-db.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-logger.php';
 require_once plugin_dir_path(__FILE__) . 'src/class-iwc-bulk-converter.php';

@@ -43,7 +43,16 @@ function iwc_png_has_alpha(string $file_path): bool {
  */
 function iwc_resolve_webp_target_path(string $source_path): string {
     $dir = dirname($source_path);
-    $webp_name = preg_replace('/\.(jpe?g|png)$/i', '.webp', basename($source_path));
+    $basename = basename($source_path);
+
+    // Strip whatever extension is actually there rather than matching a fixed
+    // list. WordPress accepts .jpe for image/jpeg (and hosts see .jfif in the
+    // wild), so an allow-list regex left the original extension in place and
+    // wrote WEBP bytes into a file still named .jpe — which the upload array
+    // then labelled image/webp, a mismatch WordPress rejects downstream.
+    $stem = preg_replace('/\.[^.\/\\\\]+$/', '', $basename);
+    $webp_name = ($stem === '' ? $basename : $stem) . '.webp';
+
     $unique_name = wp_unique_filename($dir, $webp_name);
     return trailingslashit($dir) . $unique_name;
 }
@@ -196,7 +205,59 @@ function iwc_convert_image_file_to_webp(string $source_path, string $mime_type, 
         imagedestroy($image);
     }
 
-    return $ok;
+    if (!$ok) {
+        // A failed imagewebp() can still have created (and left behind) an
+        // empty or truncated file at the target path.
+        @unlink($webp_path);
+        return false;
+    }
+
+    return iwc_accept_webp_output($source_path, $webp_path);
+}
+
+/**
+ * Decide whether a freshly-written .webp is actually worth keeping, deleting
+ * it and reporting failure if not.
+ *
+ * WEBP is not unconditionally smaller. Re-encoding an already well-optimised
+ * JPEG, or a flat-colour PNG that PNG's own compression handles well, often
+ * produces a *larger* file — so converting unconditionally could grow a
+ * page's weight while reporting a saving. The caller treats false the same as
+ * any other skipped conversion: the original is left exactly as it was.
+ *
+ * Filterable for sites that want WEBP for consistency regardless of size.
+ */
+function iwc_accept_webp_output(string $source_path, string $webp_path): bool {
+    /**
+     * Filters whether a converted WEBP must be smaller than its source to be kept.
+     *
+     * @param bool   $require_smaller Whether to require a size reduction. Default true.
+     * @param string $source_path     Absolute path to the source image.
+     * @param string $webp_path       Absolute path to the generated WEBP.
+     */
+    if (!apply_filters('iwc_require_smaller_output', true, $source_path, $webp_path)) {
+        return true;
+    }
+
+    $webp_bytes = @filesize($webp_path);
+    $source_bytes = @filesize($source_path);
+
+    if ($webp_bytes === false || $webp_bytes === 0) {
+        @unlink($webp_path);
+        return false;
+    }
+
+    // An unreadable source is not evidence the conversion was bad; keep it.
+    if ($source_bytes === false || $source_bytes === 0) {
+        return true;
+    }
+
+    if ($webp_bytes >= $source_bytes) {
+        @unlink($webp_path);
+        return false;
+    }
+
+    return true;
 }
 
 /**

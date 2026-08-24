@@ -2,13 +2,13 @@
 Contributors: aaronbelchamber
 Tags: images, webp, performance, optimization, media
 Requires at least: 5.6
-Tested up to: 6.6
+Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Automatically converts newly uploaded JPG/JPEG/PNG images to WEBP to cut file size and speed up your site.
+Converts JPG/JPEG/PNG images to WEBP to cut file size and speed up your site — new uploads automatically, and your existing Media Library on request.
 
 == Description ==
 
@@ -26,7 +26,19 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 
 == Changelog ==
 
-
+= 1.3.0 =
+* Fixed: the bulk converter's reference check treated only PHP-serialized data as a reference, so images placed with Elementor, Bricks, Oxygen or Breakdance (which store layouts as JSON) were classed as unused and had their originals moved — breaking those pages. References are now detected regardless of how they're stored.
+* Fixed: every image's own attachment metadata was being counted as a reference to itself, which meant the bulk converter reported everything as "in use" and converted nothing at all on a real site.
+* Fixed: references written as JSON escape their slashes, so the search never matched page-builder data even once it was being looked at.
+* Fixed: posts referencing a thumbnail size were detected but never rewritten, then had that thumbnail moved anyway. All sizes are now rewritten, and an image whose references can't all be updated is reported and excluded from cleanup instead of being silently marked ready.
+* Fixed: the full-resolution original kept alongside large uploads (WordPress's -scaled behaviour) was never collected, leaving the biggest file on disk behind and under-reporting space saved.
+* Fixed: converting a .jpe or .jfif upload wrote WEBP data into a file that kept its original extension.
+* Added: conversions that would produce a larger file than the source are now discarded and the original kept — WEBP doesn't beat every image. Overridable with the `iwc_require_smaller_output` filter.
+* Added: detection for page builders, other image optimisers, and plugins that store image URLs in their own tables (TranslatePress, WPML, Slider Revolution, LayerSlider, MailPoet). When one of the latter is present, originals are always kept for review rather than moved automatically.
+* Changed: the Media Library scan now runs in pages instead of a single request, so it completes on large libraries instead of timing out.
+* Added: uninstall now removes the plugin's settings, log table and metadata. The holding folder of original images is deliberately left alone.
+* Added: the holding folder is no longer publicly readable on Apache/LiteSpeed.
+* Fixed: a failed batch left the conversion progress bar frozen with no error shown.
 = 1.2.1 =
 * Fixed bulk-convert bytes_saved always reporting 0 for trashed images; added a PHPUnit test suite.
 = 1.2.0 =
@@ -47,7 +59,35 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 == Frequently Asked Questions ==
 
 = Does this touch my existing media library? =
-No — it only converts new uploads going forward.
+Only when you ask it to. New uploads are converted automatically; your existing library is left alone until you run
+the bulk converter from the "Convert Existing Images" tab.
+
+= Is the bulk converter safe to run? =
+It is built to refuse rather than guess. Before touching an image it searches your posts, postmeta and options for any
+reference to that file. Anything referenced from a page builder, widget or setting is reported and left completely
+untouched. Only images referenced nowhere, or referenced in plain post content it can rewrite itself, are converted.
+
+= What about Elementor, Bricks, Oxygen or Divi? =
+Images used in Elementor, Bricks, Oxygen and similar builders are detected and deliberately skipped — this plugin will
+not rewrite a page builder's own data. Divi and other shortcode-based builders keep their content in the post body, so
+those images are handled normally.
+
+= Are my original files deleted? =
+No. Originals are moved to wp-content/uploads/iwc-trash/, mirroring their original folder structure, so you can restore
+or delete them yourself once you're happy. Uninstalling the plugin does not remove that folder.
+
+= I use TranslatePress, WPML, Slider Revolution or MailPoet. =
+Those store image URLs in their own database tables, which this plugin cannot search — so an image could look unused
+while one of them still points at it. When any of them is detected, originals are always kept for your review instead
+of being moved automatically.
 
 = What if GD isn't enabled? =
 The plugin shows a notice on its settings page and leaves uploads untouched until GD is available.
+
+= Why did some images not convert? =
+A conversion is only kept if the WEBP is actually smaller. WEBP does not beat every source — a well-optimised JPEG or a
+flat-colour PNG often re-encodes larger — and in those cases the original is kept as-is rather than made bigger.
+
+= My host runs nginx. How do I protect the holding folder? =
+An .htaccess denying access is written automatically, which covers Apache and LiteSpeed. On nginx add:
+`location ~* /uploads/iwc-trash/ { deny all; }`

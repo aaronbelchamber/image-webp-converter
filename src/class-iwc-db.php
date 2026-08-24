@@ -10,8 +10,18 @@ if (!defined('ABSPATH')) {
 }
 
 class IWC_DB {
+
+    /**
+     * Schema revision, bumped only when the table definition below changes.
+     *
+     * Previously this compared against IWC_VERSION, so every plugin release
+     * re-ran dbDelta() — a full table introspection on the next admin request
+     * after any update, schema change or not.
+     */
+    const SCHEMA_VERSION = '2';
+
     public static function maybe_upgrade(): void {
-        if (get_option('iwc_db_version') !== IWC_VERSION) {
+        if (get_option('iwc_db_version') !== self::SCHEMA_VERSION) {
             self::activate();
         }
     }
@@ -43,6 +53,6 @@ class IWC_DB {
         ) $charset_collate;";
         dbDelta($sql);
 
-        update_option('iwc_db_version', IWC_VERSION);
+        update_option('iwc_db_version', self::SCHEMA_VERSION);
     }
 }

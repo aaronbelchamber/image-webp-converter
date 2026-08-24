@@ -141,7 +141,43 @@ class IWC_Admin {
         <?php
     }
 
+    /**
+     * Notices about what's installed on this site, shown before the scan so
+     * the numbers it reports aren't a surprise.
+     */
+    private static function render_compat_notices(): void {
+        $custom_table = IWC_Compat::custom_table_plugins();
+        $builders = IWC_Compat::page_builders();
+        $optimizers = IWC_Compat::conflicting_optimizers();
+
+        if (!empty($custom_table)) : ?>
+            <div class="notice notice-warning">
+                <p><strong>Extra caution is on for this site.</strong> <?php echo esc_html(implode(', ', $custom_table)); ?>
+                store image URLs in their own database tables, which this plugin can't search. An image could look
+                unused here while one of them still points at it.</p>
+                <p>Images will still be converted, but originals are always kept for your review rather than being
+                moved automatically. Check those pages before clearing anything from the Cleanup Review tab.</p>
+            </div>
+        <?php endif;
+
+        if (!empty($optimizers)) : ?>
+            <div class="notice notice-error">
+                <p><strong>Another image optimiser is active:</strong> <?php echo esc_html(implode(', ', $optimizers)); ?>.
+                Two plugins converting the same upload will fight over it. Run only one.</p>
+            </div>
+        <?php endif;
+
+        if (!empty($builders)) : ?>
+            <div class="notice notice-info">
+                <p><strong><?php echo esc_html(implode(', ', $builders)); ?></strong> stores page layouts outside normal
+                post content. Images used there are reported below and deliberately left untouched — this tool won't
+                rewrite a page builder's data.</p>
+            </div>
+        <?php endif;
+    }
+
     private static function render_convert_tab(): void {
+        self::render_compat_notices();
         ?>
         <p>Scans your Media Library for JPG/PNG images and converts what's safe to convert automatically. Images already used somewhere are handled carefully — see the summary below before starting.</p>
         <div id="iwc-bulk-convert-app">
@@ -158,8 +194,14 @@ class IWC_Admin {
 
     private static function render_cleanup_tab(): void {
         $rows = IWC_Logger::get_pending_cleanup();
+        $total_pending = IWC_Logger::count_pending_cleanup();
+        self::render_references_failed_notice();
         ?>
         <p>These images were converted and their content references were updated, but the original files are still on disk pending your review. Select any you're confident about and move them out of the way.</p>
+
+        <?php if ($total_pending > count($rows)) : ?>
+            <p><em>Showing the <?php echo (int) count($rows); ?> most recent of <?php echo (int) $total_pending; ?> waiting. Clear these and the rest will appear.</em></p>
+        <?php endif; ?>
 
         <?php if (empty($rows)) : ?>
             <p><em>Nothing pending cleanup right now.</em></p>
@@ -211,6 +253,42 @@ class IWC_Admin {
                 </p>
             </form>
         <?php endif; ?>
+        <?php
+    }
+
+    /**
+     * Images that converted but whose references couldn't all be rewritten.
+     * Deliberately read-only: these are exactly the rows where moving the
+     * originals would break something, so there's no action offered.
+     */
+    private static function render_references_failed_notice(): void {
+        $rows = IWC_Logger::get_references_failed();
+        if (empty($rows)) {
+            return;
+        }
+        ?>
+        <div class="notice notice-warning">
+            <p><strong><?php echo (int) count($rows); ?> image(s) converted, but at least one reference to them couldn't be updated automatically.</strong></p>
+            <p>Their originals have been left in place and are not offered for cleanup below — removing them would break
+            whatever still points at them. This usually means the reference is a relative path, a CDN URL, or otherwise
+            not written in a form this tool can safely rewrite. The pages still work; they're just still using the
+            original file.</p>
+            <ul style="list-style:disc; margin-left:20px;">
+                <?php foreach ($rows as $row) :
+                    $affected = json_decode((string) $row->message, true);
+                    $titles = is_array($affected)
+                        ? array_map(function ($r) { return $r['post_title'] ?: ('#' . $r['post_id']); }, $affected)
+                        : [];
+                    ?>
+                    <li>
+                        <code><?php echo esc_html(basename($row->original_path)); ?></code>
+                        <?php if (!empty($titles)) : ?>
+                            — still referenced by: <?php echo esc_html(implode(', ', $titles)); ?>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
         <?php
     }
 
