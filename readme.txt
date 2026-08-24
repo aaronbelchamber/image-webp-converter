@@ -4,7 +4,7 @@ Tags: images, webp, performance, optimization, media
 Requires at least: 5.6
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,10 @@ Part of a small family of free WordPress utilities — more at [tools.belchamber
 
 == Changelog ==
 
+= 1.6.0 =
+* The plugin is now fully translatable. Every string in the admin screens, the AJAX responses and the bulk-converter's status messages goes through WordPress's translation functions with a text domain matching the plugin slug, so translate.wordpress.org can pick it up. Strings containing a number are passed to translators as placeholders rather than having the count welded to the front of the sentence, since several languages need it elsewhere.
+* The JavaScript on the Convert Existing Images tab is translated too, via strings passed in from PHP. A test checks the keys the script asks for and the strings PHP supplies still match — a rename there used to fail silently, leaving the interface in English and looking entirely normal.
+* Fixed: the settings screen reported "the PHP GD extension is not enabled — conversion is currently inactive" on any server whose GD lacks WebP, which since 1.5.0 has been wrong: those servers convert perfectly well through ImageMagick. It now reports which backend is actually in use.
 = 1.5.0 =
 * Added: an ImageMagick encoding backend. Hosts whose GD was built without WebP support — while ImageMagick handles it perfectly well — previously converted nothing at all and gave no indication why. Those installations now work. GD is still used wherever it can encode WebP, so nothing changes for the great majority of sites; the `iwc_webp_backend` filter can force either one.
 * The Imagick path mirrors the GD path's decisions rather than inventing its own: the same colourspace correction for CMYK, the same EXIF orientation baked into the pixels, the same quality floor for transparent images, and the same "keep whichever of lossy and lossless is smaller" comparison. It additionally preserves the ICC colour profile, which GD discards.

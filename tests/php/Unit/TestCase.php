@@ -29,6 +29,15 @@ abstract class TestCase extends BaseTestCase {
         parent::setUp();
         Monkey\setUp();
 
+        // Translation and escaping functions, so the plugin's user-facing
+        // strings can go through __() and esc_html__() without every test
+        // having to mock them. Brain Monkey's stubs return the string
+        // unchanged, which is what these tests want to assert against.
+        //
+        // _n() is not among them and is stubbed in bootstrap.php instead.
+        Monkey\Functions\stubTranslationFunctions();
+        Monkey\Functions\stubEscapeFunctions();
+
         if ($this->requiresWebpEncoding && !function_exists('imagewebp')) {
             $this->markTestSkipped('GD on this host was built without WEBP support.');
         }

@@ -21,7 +21,7 @@ class IWC_Ajax {
     private static function check_access(): void {
         check_ajax_referer('iwc_bulk_convert', 'nonce');
         if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Insufficient permissions'], 403);
+            wp_send_json_error(['message' => __('Insufficient permissions', 'image-webp-converter')], 403);
         }
 
         // admin_init does not fire on admin-ajax.php, so the schema check
@@ -67,7 +67,7 @@ class IWC_Ajax {
         $bucket = isset($_POST['bucket']) ? sanitize_key($_POST['bucket']) : '';
 
         if (empty($ids) || !in_array($bucket, ['unreferenced', 'plain_content'], true)) {
-            wp_send_json_error(['message' => 'Invalid batch request']);
+            wp_send_json_error(['message' => __('Invalid batch request', 'image-webp-converter')]);
         }
 
         if (count($ids) > self::MAX_BATCH_SIZE) {
@@ -79,7 +79,7 @@ class IWC_Ajax {
         // image before either has written its result, and both convert it.
         if (!IWC_Lock::acquire()) {
             wp_send_json_error([
-                'message' => 'Another bulk conversion is already running. Wait for it to finish, or reload this page.',
+                'message' => __('Another bulk conversion is already running. Wait for it to finish, or reload this page.', 'image-webp-converter'),
             ], 409);
         }
 

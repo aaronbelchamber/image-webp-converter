@@ -141,6 +141,12 @@ if (!function_exists('wp_normalize_path')) {
     }
 }
 
+// Translation and escaping functions are deliberately NOT defined here.
+// Brain Monkey stubs them (see TestCase::setUp), and it does so through
+// Patchwork, which can only redefine functions declared after it loads —
+// defining them in this bootstrap makes Patchwork throw DefinedTooEarly and
+// every test errors out before running.
+
 if (!function_exists('wp_mkdir_p')) {
     function wp_mkdir_p(string $target): bool {
         if (is_dir($target)) {
@@ -156,6 +162,7 @@ require_once dirname(__DIR__, 2) . '/src/class-iwc-compat.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-lock.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-logger.php';
 require_once dirname(__DIR__, 2) . '/src/class-iwc-bulk-converter.php';
+require_once dirname(__DIR__, 2) . '/src/class-iwc-admin.php';
 
 // WP-CLI isn't loadable in a plain PHPUnit run, so the command class is given
 // a recording stand-in rather than being left untested.

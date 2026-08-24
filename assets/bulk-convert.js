@@ -3,6 +3,32 @@
 
     var BATCH_SIZE = 5;
 
+    // Translated strings come from wp_localize_script; see IWC_Admin::script_strings().
+    // The fallbacks keep the UI legible if localisation ever fails to attach,
+    // rather than rendering "undefined" at the user.
+    var i18n = (typeof iwcBulkConvert !== 'undefined' && iwcBulkConvert.i18n) ? iwcBulkConvert.i18n : {};
+
+    function t(key, fallback) {
+        return i18n[key] || fallback;
+    }
+
+    /**
+     * Fill %s / %1$s / %2$s placeholders, the way PHP's sprintf does.
+     *
+     * Numbered placeholders matter: several languages need the count somewhere
+     * other than the front of the sentence, and a translator cannot move a
+     * bare %s past another one.
+     */
+    function fmt(template, args) {
+        var i = 0;
+        return String(template).replace(/%(\d+\$)?s/g, function (_match, position) {
+            if (position) {
+                return args[parseInt(position, 10) - 1];
+            }
+            return args[i++];
+        });
+    }
+
     var scanButton = document.getElementById('iwc-scan-button');
     var summaryEl = document.getElementById('iwc-scan-summary');
     var progressWrap = document.getElementById('iwc-progress-wrap');
@@ -46,7 +72,7 @@
         queue = [];
         serializedOnlyCount = 0;
         finalSummaryEl.innerHTML = '';
-        summaryEl.textContent = 'Scanning…';
+        summaryEl.textContent = t('scanning', 'Scanning…');
         scanPage(0, 0, null);
     });
 
@@ -57,7 +83,7 @@
         post('iwc_bulk_scan', afterId ? { after_id: afterId } : {}).then(function (response) {
             if (!response || !response.success) {
                 scanButton.disabled = false;
-                fail(summaryEl, 'Scan failed. Nothing was changed.');
+                fail(summaryEl, t('scanFailed', 'Scan failed. Nothing was changed.'));
                 return;
             }
 
@@ -73,8 +99,8 @@
 
             if (!data.done) {
                 summaryEl.textContent = total
-                    ? 'Scanning… ' + scanned + ' / ' + total + ' images checked'
-                    : 'Scanning… ' + scanned + ' images checked';
+                    ? fmt(t('scanningProgress', 'Scanning… %1$s / %2$s images checked'), [scanned, total])
+                    : fmt(t('scanningCount', 'Scanning… %s images checked'), [scanned]);
                 scanPage(data.last_id, scanned, total);
                 return;
             }
@@ -83,7 +109,7 @@
             renderScanSummary();
         }).catch(function (err) {
             scanButton.disabled = false;
-            fail(summaryEl, 'Scan failed: ' + err.message + '. Nothing was changed.');
+            fail(summaryEl, fmt(t('scanFailedReason', 'Scan failed: %s. Nothing was changed.'), [err.message]));
         });
     }
 
@@ -93,9 +119,9 @@
         var plainContent = total - unreferenced;
 
         var lines = [
-            unreferenced + ' ready to convert immediately (not used anywhere yet).',
-            plainContent + ' will be converted and have their content references updated automatically.',
-            serializedOnlyCount + ' are used in a way this tool does not safely update yet (widgets, page builders) — left untouched.',
+            fmt(t('readyNow', '%s ready to convert immediately (not used anywhere yet).'), [unreferenced]),
+            fmt(t('readyWithRewrite', '%s will be converted and have their content references updated automatically.'), [plainContent]),
+            fmt(t('leftUntouched', '%s are used in a way this tool does not safely update yet (widgets, page builders) — left untouched.'), [serializedOnlyCount]),
         ];
         summaryEl.innerHTML = lines.map(function (l) { return '<p>' + l + '</p>'; }).join('');
 
@@ -103,7 +129,7 @@
             var startBtn = document.createElement('button');
             startBtn.type = 'button';
             startBtn.className = 'button button-primary';
-            startBtn.textContent = 'Start Conversion (' + total + ')';
+            startBtn.textContent = fmt(t('startConversion', 'Start Conversion (%s)'), [total]);
             startBtn.addEventListener('click', function () {
                 startBtn.disabled = true;
                 scanButton.disabled = true;
@@ -149,7 +175,7 @@
                     totals.error += ids.length;
                 }
                 progressBar.value = Math.round((processed / total) * 100);
-                progressText.textContent = processed + ' / ' + total + ' processed';
+                progressText.textContent = fmt(t('progress', '%1$s / %2$s processed'), [processed, total]);
                 next();
             }).catch(function (err) {
                 // Without this the queue stalled silently on the first 502
@@ -157,10 +183,11 @@
                 // indication anything had gone wrong.
                 converting = false;
                 scanButton.disabled = false;
-                progressText.textContent = 'Stopped after ' + processed + ' of ' + total + '.';
-                fail(finalSummaryEl,
-                    'Conversion stopped: ' + err.message +
-                    '. Images already processed are safe; re-scan to continue with the rest.');
+                progressText.textContent = fmt(t('stoppedAfter', 'Stopped after %1$s of %2$s.'), [processed, total]);
+                fail(finalSummaryEl, fmt(
+                    t('conversionStopped', 'Conversion stopped: %s. Images already processed are safe; re-scan to continue with the rest.'),
+                    [err.message]
+                ));
             });
         }
 
@@ -170,15 +197,21 @@
     function finish() {
         converting = false;
         scanButton.disabled = false;
-        progressText.textContent = 'Done.';
-        finalSummaryEl.innerHTML =
-            '<p><strong>Conversion complete.</strong></p>' +
-            '<p>' + totals.trashed + ' converted and cleaned up automatically.</p>' +
-            '<p>' + totals.pending_cleanup + ' converted, content updated, originals kept pending your review — see the Cleanup Review tab.</p>' +
-            (totals.references_failed
-                ? '<p>' + totals.references_failed + ' converted, but some references could not be updated automatically — originals kept and not offered for cleanup.</p>'
-                : '') +
-            (totals.error ? '<p>' + totals.error + ' had an error and were left unchanged.</p>' : '') +
-            (totals.skipped ? '<p>' + totals.skipped + ' were skipped.</p>' : '');
+        progressText.textContent = t('done', 'Done.');
+        var parts = [
+            '<p><strong>' + t('complete', 'Conversion complete.') + '</strong></p>',
+            '<p>' + fmt(t('summaryTrashed', '%s converted and cleaned up automatically.'), [totals.trashed]) + '</p>',
+            '<p>' + fmt(t('summaryPending', '%s converted, content updated, originals kept pending your review — see the Cleanup Review tab.'), [totals.pending_cleanup]) + '</p>',
+        ];
+        if (totals.references_failed) {
+            parts.push('<p>' + fmt(t('summaryRefFailed', '%s converted, but some references could not be updated automatically — originals kept and not offered for cleanup.'), [totals.references_failed]) + '</p>');
+        }
+        if (totals.error) {
+            parts.push('<p>' + fmt(t('summaryError', '%s had an error and were left unchanged.'), [totals.error]) + '</p>');
+        }
+        if (totals.skipped) {
+            parts.push('<p>' + fmt(t('summarySkipped', '%s were skipped.'), [totals.skipped]) + '</p>');
+        }
+        finalSummaryEl.innerHTML = parts.join('');
     }
 })();

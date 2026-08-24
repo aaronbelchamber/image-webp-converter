@@ -315,21 +315,21 @@ class IWC_Bulk_Converter {
      */
     public static function convert_attachment(int $attachment_id, string $bucket, int $quality): array {
         if (get_post_meta($attachment_id, '_iwc_converted', true)) {
-            return ['status' => 'skipped', 'message' => 'Already converted'];
+            return ['status' => 'skipped', 'message' => __('Already converted', 'image-webp-converter')];
         }
 
         if (!in_array($bucket, ['unreferenced', 'plain_content'], true)) {
-            return ['status' => 'skipped', 'message' => 'Not an eligible bucket'];
+            return ['status' => 'skipped', 'message' => __('Not an eligible bucket', 'image-webp-converter')];
         }
 
         $mime_type = get_post_mime_type($attachment_id);
         if (!in_array($mime_type, ['image/jpeg', 'image/png'], true)) {
-            return ['status' => 'skipped', 'message' => 'Not an eligible image type'];
+            return ['status' => 'skipped', 'message' => __('Not an eligible image type', 'image-webp-converter')];
         }
 
         $original_path = get_attached_file($attachment_id);
         if (empty($original_path) || !file_exists($original_path)) {
-            return ['status' => 'error', 'message' => 'Original file not found'];
+            return ['status' => 'error', 'message' => __('Original file not found', 'image-webp-converter')];
         }
 
         $relative_base = self::get_relative_base($attachment_id);
@@ -346,8 +346,8 @@ class IWC_Bulk_Converter {
 
         $webp_path = iwc_resolve_webp_target_path($original_path);
         if (!iwc_convert_image_file_to_webp($original_path, $mime_type, $webp_path, $quality)) {
-            IWC_Logger::log_result($log_id, ['status' => 'error', 'message' => 'Conversion failed or was skipped by a safety guard']);
-            return ['status' => 'error', 'message' => 'Conversion failed or was skipped by a safety guard'];
+            IWC_Logger::log_result($log_id, ['status' => 'error', 'message' => __('Conversion failed or was skipped by a safety guard', 'image-webp-converter')]);
+            return ['status' => 'error', 'message' => __('Conversion failed or was skipped by a safety guard', 'image-webp-converter')];
         }
 
         update_attached_file($attachment_id, $webp_path);
