@@ -16,6 +16,9 @@ use Brain\Monkey\Functions;
  * @covers iwc_convert_upload_to_webp
  */
 final class ImageMetadataPreservationTest extends TestCase {
+    /** These encode real images, which a GD built without WEBP cannot do. */
+    protected bool $requiresWebpEncoding = true;
+
     protected function setUp(): void {
         parent::setUp();
         Functions\when('wp_image_editor_supports')->justReturn(true);

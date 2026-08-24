@@ -20,6 +20,9 @@ use IWC\Tests\fixtures\FixtureFactory;
  * @covers iwc_convert_image_file_to_webp
  */
 final class QualityFloorTest extends TestCase {
+    /** These encode real images, which a GD built without WEBP cannot do. */
+    protected bool $requiresWebpEncoding = true;
+
     protected function setUp(): void {
         parent::setUp();
         Functions\when('wp_image_editor_supports')->justReturn(true);

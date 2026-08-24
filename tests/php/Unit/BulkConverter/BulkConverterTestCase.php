@@ -15,6 +15,9 @@ use IWC\Tests\Unit\WpdbTestCase;
  * (attachment metadata plumbing, current_time(), etc.).
  */
 abstract class BulkConverterTestCase extends WpdbTestCase {
+    /** These encode real images, which a GD built without WEBP cannot do. */
+    protected bool $requiresWebpEncoding = true;
+
     protected string $uploadsBasedir;
 
     /** @var array<int,string> */

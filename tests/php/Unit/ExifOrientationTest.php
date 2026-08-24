@@ -19,6 +19,9 @@ use IWC\Tests\fixtures\FixtureFactory;
  * @covers iwc_apply_exif_orientation
  */
 final class ExifOrientationTest extends TestCase {
+    /** These encode real images, which a GD built without WEBP cannot do. */
+    protected bool $requiresWebpEncoding = true;
+
     private const WIDTH = 80;
     private const HEIGHT = 40;
 

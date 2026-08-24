@@ -52,6 +52,14 @@ final class CmykWithoutImagickTest extends TestCase {
     }
 
     public function test_non_cmyk_jpeg_is_unaffected_by_the_guard(): void {
+        // Guarded per-method rather than for the whole class: the tests above
+        // assert a *refusal* and are perfectly meaningful on a GD without
+        // WEBP — indeed that is where they matter most. This one asserts a
+        // successful conversion, so it needs an encoder to exist.
+        if (!function_exists('imagewebp')) {
+            $this->markTestSkipped('GD on this host was built without WEBP support.');
+        }
+
         $source = $this->tmpPath('plain.jpg');
         FixtureFactory::plainJpeg($source, 20, [10, 200, 30]);
 

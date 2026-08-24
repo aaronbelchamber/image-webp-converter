@@ -6,6 +6,21 @@ use Brain\Monkey;
 use PHPUnit\Framework\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase {
+    /**
+     * Whether this test needs GD to actually be able to encode WEBP.
+     *
+     * Some hosts ship a GD compiled without WebP, and the plugin's whole
+     * response to that is to refuse to convert — correctly, since a conversion
+     * it cannot verify is worse than none. Tests that encode a real image (or
+     * call imagewebp() directly in a helper) therefore cannot run there and
+     * should stand down rather than report the plugin as broken.
+     *
+     * Set to true by any test class that produces or inspects real WEBP bytes.
+     * Left false for tests of path handling, reference scanning, locking and
+     * the like, which have no imaging dependency at all.
+     */
+    protected bool $requiresWebpEncoding = false;
+
     /** @var string[] */
     private array $tmpFiles = [];
     private ?string $tmpDir = null;
@@ -13,6 +28,10 @@ abstract class TestCase extends BaseTestCase {
     protected function setUp(): void {
         parent::setUp();
         Monkey\setUp();
+
+        if ($this->requiresWebpEncoding && !function_exists('imagewebp')) {
+            $this->markTestSkipped('GD on this host was built without WEBP support.');
+        }
     }
 
     protected function tearDown(): void {

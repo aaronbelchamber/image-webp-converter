@@ -14,6 +14,9 @@ use IWC\Tests\fixtures\FixtureFactory;
  * @covers iwc_convert_image_file_to_webp
  */
 final class MemoryGuardTest extends TestCase {
+    /** These encode real images, which a GD built without WEBP cannot do. */
+    protected bool $requiresWebpEncoding = true;
+
     private string $originalMemoryLimit;
 
     protected function setUp(): void {
