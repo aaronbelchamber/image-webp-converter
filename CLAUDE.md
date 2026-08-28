@@ -45,3 +45,18 @@ or disabling the workflow.
   collide.
 - Current stable tag: 1.7.0 (see `readme.txt` for the authoritative,
   WordPress.org-format changelog).
+
+## Testing against hostile PHP environments
+
+This plugin has four branches no single workstation can reach: a GD build that
+encodes WebP but cannot decode it, CMYK JPEG handling when Imagick is absent,
+a lossless path needing PHP 8.1's `IMG_WEBP_LOSSLESS`, and a PHP 7.4
+`imagedestroy()` call. They are exercised by
+[wp-dev-playground](../../wp-dev-playground)'s PHP matrix:
+
+```
+scripts\test\run-php-matrix.cmd
+```
+
+Needs `pip install -e E:\ab-code-projects\projects\wp-dev-playground` and a
+container runtime (`wpp doctor`). All seven variants pass as of 2026-08-27.

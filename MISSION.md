@@ -39,6 +39,21 @@ outside the searchable post content.
 - Not a page builder or media library replacement.
 - Not dependent on any other plugin or project -- zero-config, standalone.
 
+## Interfaces
+
+```yaml
+provides:
+  - name: webp-conversion
+    surface: "WordPress plugin -- image-webp-converter.php"
+    kind: wordpress-plugin
+    stable: true
+consumes:
+  - name: php-matrix
+    from: wp-dev-playground
+    surface: "wpp run . --variants all -- via scripts/test/run-php-matrix.cmd"
+    status: live
+```
+
 ## Related projects -- and, if applicable, how they work together
 
 This repo (`image-webp-converter`) is the **published, public side** of the
