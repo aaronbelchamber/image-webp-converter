@@ -1,13 +1,13 @@
-> **Standing preferences for this drive live outside this repo.**
-> Read `E:\central-project-hub\PREFERENCES.md` before working here. It covers
-> ports, launching processes without a window, URL hygiene, branch conventions,
-> script placement, file-size thresholds, verification, design systems,
-> self-review and session retros. It is canonical: where it and anything below
-> disagree, it wins, and the copy below is the thing to fix.
+> **Standing preferences apply to this repo.** The operator of this project
+> keeps one cross-project preferences file — ports, launching processes without
+> a window, URL hygiene, branch conventions, script placement, file-size
+> thresholds, verification, design systems, self-review — outside this
+> repository, and it is canonical where it and anything below disagree.
 >
-> If that path does not resolve -- a different machine, an unmounted drive --
-> recover it rather than carrying on as though there were no standing
-> preferences: `gh repo clone aaronbelchamber/central-project-hub`.
+> It is not published here, and it is not something an outside contributor
+> needs: everything required to build, test and run this project is in this
+> repo. If you are working with the drive mounted, read it before changing
+> anything.
 
 # Image WebP Converter
 
@@ -28,7 +28,7 @@ here (docs-only, public-side-specific), confirm before proceeding.
 This is the public half of the pair, so CI runs here and
 `belchamber-plugins-private` deliberately does not run its own. The reasoning,
 the cost model and the `workflow_dispatch` pattern are drive-wide and live in
-`E:\central-project-hub\PREFERENCES.md` under "Continuous integration".
+the operator's cross-project preferences file, under "Continuous integration".
 
 ## Operational details
 

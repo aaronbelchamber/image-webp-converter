@@ -9,4 +9,4 @@ agents end up working the same repo to three different rulebooks -- so the
 content lives in one place and the other names point at it.
 
 Standing preferences for the whole drive are in
-`E:\central-project-hub\PREFERENCES.md`, linked from AGENTS.md.
+the operator's cross-project preferences file, linked from AGENTS.md.
