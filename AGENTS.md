@@ -48,15 +48,14 @@ the operator's cross-project preferences file, under "Continuous integration".
 
 ## Testing against hostile PHP environments
 
-Four branches here cannot be reached from any single workstation: a GD build that
-encodes WebP but cannot decode it, CMYK JPEG handling when Imagick is absent, a
-lossless path needing PHP 8.1's `IMG_WEBP_LOSSLESS`, and a PHP 7.4
-`imagedestroy()` call. [wp-dev-playground](../../wp-dev-playground)'s PHP matrix
-exercises all of them:
+Four branches here cannot be reached from any single workstation, and are worth
+knowing about whether or not you can run them: a GD build that encodes WebP but
+cannot decode it, CMYK JPEG handling when Imagick is absent, a lossless path
+needing PHP 8.1's `IMG_WEBP_LOSSLESS`, and a PHP 7.4 `imagedestroy()` call.
+Anything touching those four needs a real matrix of PHP builds behind it, not a
+single local interpreter.
 
-```
-scripts\test\run-php-matrix.cmd
-```
-
-Needs `pip install -e E:\ab-code-projects\projects\wp-dev-playground` and a
-container runtime (`wpp doctor`). All seven variants passed as of 2026-08-27.
+They are covered by a container-based PHP matrix that is part of the
+maintainer's local tooling rather than this repository; all seven variants
+passed as of 2026-08-27. Outside contributors do not need it -- everything else
+here runs against a normal PHP install.
