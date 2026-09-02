@@ -1,3 +1,6 @@
 /vendor/
 .phpunit.result.cache
 .wp-playground/
+
+# A worktree's .git is a file, so `git add -A` stages this as a gitlink.
+.claude/worktrees/
