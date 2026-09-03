@@ -62,7 +62,7 @@ monorepo with its own `image-webp-converter/` subdirectory that is the real
 dev source. That private repo's CI publishes changes out to this repo --
 `belchamber-plugins-private -> image-webp-converter` is one of several
 private-to-public publish pairings (the same pattern as
-`site-ops-private -> site-ops-public`).
+`site-ops -> site-ops-showcase`).
 
 Changes should generally originate in `belchamber-plugins-private`, not be
 made independently here -- editing this repo directly risks drift between the
