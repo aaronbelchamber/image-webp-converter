@@ -1,13 +1,13 @@
 > **Standing preferences apply to this repo.** The operator of this project
-> keeps one cross-project preferences file — ports, launching processes without
-> a window, URL hygiene, branch conventions, script placement, file-size
-> thresholds, verification, design systems, self-review — outside this
-> repository, and it is canonical where it and anything below disagree.
+> keeps a set of cross-project standing files — how code is written and
+> reviewed, verification, branch conventions, script placement, and more —
+> outside this repository, and they are canonical where they and anything below
+> disagree.
 >
 > It is not published here, and it is not something an outside contributor
 > needs: everything required to build, test and run this project is in this
-> repo. If you are working with the drive mounted, read it before changing
-> anything.
+> repo. If you are working with the drive mounted, they are in
+> `E:\project-hub\docs\standards\`; read them before changing anything.
 
 # Image WebP Converter
 
@@ -28,7 +28,7 @@ here (docs-only, public-side-specific), confirm before proceeding.
 This is the public half of the pair, so CI runs here and
 `belchamber-plugins-private` deliberately does not run its own. The reasoning,
 the cost model and the `workflow_dispatch` pattern are drive-wide and live in
-the operator's cross-project preferences file, under "Continuous integration".
+the operator's verification standing file, under "Continuous integration".
 
 ## Operational details
 
