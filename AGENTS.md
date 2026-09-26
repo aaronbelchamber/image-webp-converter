@@ -1,13 +1,8 @@
-> **Standing preferences apply to this repo.** The operator of this project
-> keeps a set of cross-project standing files — how code is written and
-> reviewed, verification, branch conventions, script placement, and more —
-> outside this repository, and they are canonical where they and anything below
-> disagree.
->
-> It is not published here, and it is not something an outside contributor
-> needs: everything required to build, test and run this project is in this
-> repo. If you are working with the drive mounted, they are in
-> `E:\project-hub\docs\standards\`; read them before changing anything.
+> **Standing preferences apply to this repo.** The operator keeps them in
+> cross-project files outside this repository, canonical wherever they and
+> anything below disagree. They are not published, and an outside contributor
+> does not need them: everything required to build, test and run this project is
+> here.
 
 # Image WebP Converter
 
