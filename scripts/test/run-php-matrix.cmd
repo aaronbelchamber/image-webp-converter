@@ -9,7 +9,7 @@ REM PHP 8.1's IMG_WEBP_LOSSLESS, and a PHP 7.4 imagedestroy() call. Those are
 REM only exercised here.
 REM
 REM Requires wp-dev-playground installed and a container runtime running:
-REM   pip install -e E:\ab-code-projects\projects\wp-dev-playground
+REM   pip install -e E:\ab-code-projects\projects\wordpress\wp-dev-playground
 REM   wpp doctor
 REM ---------------------------------------------------------------------------
 setlocal
@@ -19,7 +19,7 @@ where wpp >nul 2>nul
 if errorlevel 1 (
   echo.
   echo   wpp not found on PATH.
-  echo   Install it:  pip install -e E:\ab-code-projects\projects\wp-dev-playground
+  echo   Install it:  pip install -e E:\ab-code-projects\projects\wordpress\wp-dev-playground
   echo.
   exit /b 1
 )
