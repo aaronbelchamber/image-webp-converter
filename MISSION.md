@@ -42,6 +42,7 @@ outside the searchable post content.
 ## Interfaces
 
 ```yaml
+project_kind: app
 provides:
   - name: webp-conversion
     surface: "WordPress plugin -- image-webp-converter.php"
