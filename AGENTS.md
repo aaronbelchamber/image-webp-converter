@@ -11,8 +11,9 @@ Read MISSION.md for what this is.
 ## Before editing: this is the public mirror
 
 Real development happens in `belchamber-plugins-private`
-(`image-webp-converter/` subdirectory) — that private repo's CI publishes
-changes out to this one. Do not edit code here directly; changes belong in
+(`image-webp-converter/` subdirectory) — changes reach this one when its
+`publish-plugin.ps1` is run by hand; its CI only runs the tests, and only when
+started by hand. Do not edit code here directly; changes belong in
 `belchamber-plugins-private` first. Editing this repo independently risks
 drift, since the next publish from the private repo can overwrite or
 conflict with local changes. If unsure whether a change is safe to make
