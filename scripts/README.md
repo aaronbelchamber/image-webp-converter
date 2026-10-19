@@ -10,7 +10,7 @@
 and a container runtime running:
 
 ```
-pip install -e E:\ab-code-projects\projects\wordpress\wp-dev-playground
+pip install -e D:\ab-code-projects\projects\wordpress\wp-dev-playground
 wpp doctor
 ```
 

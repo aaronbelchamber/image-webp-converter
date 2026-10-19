@@ -48,5 +48,5 @@ a lossless path needing PHP 8.1's `IMG_WEBP_LOSSLESS`, and a PHP 7.4
 scripts\test\run-php-matrix.cmd
 ```
 
-Needs `pip install -e E:\ab-code-projects\projects\wordpress\wp-dev-playground` and a
+Needs `pip install -e D:\ab-code-projects\projects\wordpress\wp-dev-playground` and a
 container runtime (`wpp doctor`). All seven variants pass as of 2026-08-27.
