@@ -21,8 +21,9 @@ here (docs-only, public-side-specific), confirm before proceeding.
 
 ## CI
 
-This is the public half of the pair, so CI runs here and
-`belchamber-plugins-private` deliberately does not run its own. The reasoning,
+This is the public half of the pair, but its workflow is manual-only like
+`belchamber-plugins-private`'s: Aaron ruled on 10/21/2026 that no repository
+runs CI for now, so nothing runs on push. The reasoning,
 the cost model and the `workflow_dispatch` pattern are drive-wide and live in
 the operator's verification standing file, under "Continuous integration".
 

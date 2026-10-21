@@ -17,9 +17,14 @@ name: Tests
 # that only run when an extension is missing or was built without a feature,
 # and no single machine can reach them.
 
+# Manual only (Aaron, 10/21/2026, D9iv): no repository runs CI for now. The
+# file is kept so a run can still be started by hand:
+#
+#   gh workflow run tests.yml --repo aaronbelchamber/image-webp-converter
+#
+# Putting push/pull_request back needs Aaron's say-so.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   matrix:
