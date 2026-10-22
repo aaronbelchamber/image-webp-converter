@@ -8,7 +8,7 @@
 
 Read MISSION.md for what this is.
 
-## Before editing: this is the public mirror
+## Before editing: this is the public copy
 
 Real development happens in `belchamber-plugins-private`
 (`image-webp-converter/` subdirectory) — changes reach this one when its

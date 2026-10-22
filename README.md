@@ -36,6 +36,16 @@ Open an issue on this plugin's repository, or contact the developer via [belcham
 ## License
 GPLv2 or later — see [readme.txt](readme.txt) for the WordPress.org-format changelog and FAQ.
 
+## Where this copy comes from
+
+This repository is a public copy of the plugin whose development source is the
+`image-webp-converter/` folder of the private repository
+`belchamber-plugins-private`. It is not a git mirror: it has its own root commit
+and is brought up to date by hand (`publish-plugin.ps1` in the private
+repository, run by hand). The two differ. This copy is 1.7.0; the private copy is
+1.7.1 and also holds `src/class-iwc-redirect.php` and its test, which this copy
+does not have. Changes are made in the private repository first.
+
 ## Testing against hostile PHP environments
 
 This plugin has four branches no single workstation can reach: a GD build that

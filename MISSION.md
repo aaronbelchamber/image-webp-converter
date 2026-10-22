@@ -60,10 +60,10 @@ consumes:
 This repo (`image-webp-converter`) is the **published, public side** of the
 plugin. Active development happens in `belchamber-plugins-private`, a private
 monorepo with its own `image-webp-converter/` subdirectory that is the real
-dev source. That private repo's CI publishes changes out to this repo --
-`belchamber-plugins-private -> image-webp-converter` is one of several
-private-to-public publish pairings (the same pattern as
-`site-ops -> site-ops-showcase`).
+dev source. This repo is a hand-synced copy, not a git mirror: it has its own
+root commit, and changes reach it when that repo's `publish-plugin.ps1` is run
+by hand. The two currently differ: this copy is 1.7.0, the private copy is
+1.7.1 and also holds `src/class-iwc-redirect.php`, which this copy lacks.
 
 Changes should generally originate in `belchamber-plugins-private`, not be
 made independently here -- editing this repo directly risks drift between the
