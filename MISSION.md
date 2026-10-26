@@ -3,7 +3,7 @@
 Image WebP Converter is a standalone WordPress plugin that converts JPG/JPEG/PNG
 images to WebP to cut file size and speed up page loads. New uploads convert
 automatically via the `wp_handle_upload` pipeline (not a directory batch-scan).
-It handles CMYK JPEGs by correcting colourspace through Imagick, preserves EXIF
+It handles CMYK JPEGs by correcting colorspace through Imagick, preserves EXIF
 orientation and metadata that WebP itself can't carry, and holds transparent
 PNGs to a quality floor so alpha edges don't compress into jagged artifacts.
 Existing Media Libraries can be bulk-converted safely -- unused images convert
